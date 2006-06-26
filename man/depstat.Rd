@@ -18,7 +18,7 @@
   \item{anyfp}{Last year of the desired period (<=\code{anyf}, with 4 digits)}
   \item{nm}{Number of series in each station. (Default=12, for monthly data).}
   \item{ndec}{Number of decimal places to be saved in file
-    \file{VAR\_AI-AF.dep}}
+    \file{VAR\_AI-AF.med}}
   \item{vala}{Kind of annual value:
     \describe{
       \item{1:}{Sum of monthly values,}

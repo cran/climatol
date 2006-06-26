@@ -35,7 +35,6 @@ depudm <- function(varcli, anyi, anyf, nm=12, wa=100, dz.max=2, difumb=0.05,
       zz <- scan(what=character(),n=1,quiet=TRUE)
       if(length(zz)==0) zz <- "0"
       if(zz=="f") break
-      if(substr(zz,1,1)!="1") zz <- "0"
       me2 <- as.integer(zz)
       if(me2 > 0 && me2 <= nm) me <- me2
     }
@@ -48,7 +47,14 @@ depudm <- function(varcli, anyi, anyf, nm=12, wa=100, dz.max=2, difumb=0.05,
       dat.d <<- dat[me,,] #datos de 1 mes (dat.d)
     }
     #transformación raíz cuadrada opcional (sólo valores > 1):
-    if(sqrtrans) dat.d[dat.d>1] <<- sqrt(dat.d[dat.d>1])
+    if(sqrtrans) {
+      for(i in 1:na) {
+        for(j in 1:ne) {
+          if(!is.na(dat.d[i,j]) && dat.d[i,j]>1) dat.d[i,j] <<- sqrt(dat.d[i,j])
+        }
+      }
+    }
+    
     dat.na <- is.na(dat.d) #índice de datos ausentes
     tipif(ttip=ttip) #tipificación (dat.m, [dat.s,] dat.z)
     dat.m0 <- dat.m #copia de las medias
