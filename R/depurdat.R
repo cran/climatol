@@ -35,6 +35,7 @@ depudm <- function(varcli, anyi, anyf, nm=12, wa=100, dz.max=2, difumb=0.05,
       zz <- scan(what=character(),n=1,quiet=TRUE)
       if(length(zz)==0) zz <- "0"
       if(zz=="f") break
+      if(substr(zz,1,1)!="1") zz <- "0"
       me2 <- as.integer(zz)
       if(me2 > 0 && me2 <= nm) me <- me2
     }

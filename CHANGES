@@ -7,5 +7,7 @@ HISTORY OF CHANGES IN climatol
                      to avoid 'Error: NAs are not allowed in subscripted
                      assignments', produced when using option sqrtrans=TRUE
                      in function depudm() since R version 2.0.0 
-
+06-Oct-2006   1.0.3  Change of '°C' by just 'C' to avoid non-ascii characters
+                     warnings in the R checking process of the package, and
+                     update of the PDF poster of the documentation
 

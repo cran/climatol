@@ -1,13 +1,7 @@
-datest                  Compute estimated series from neighbour stations
-depudm                  Study the homogeneity of monthly data
-depstat                 Compute averages for some period
-destipif                Unstandardize the series
+cli.dat                 Monthly climatic data of a single station
+depstat                 Compute averages for a specified period
+depudm                  Monthly data homogenization
 diagwl                  Walter & Lieth climatic diagram
-grabeps                 Save the last graph (in EPS)
-grafanom                Plot anomalies, and data plus estimated data
-leerdm                  Read the monthly data, with optional
-			transformation a+b*x
-matpesos                Compute the inter-station wheight matrix
-movttest                t-test for a running window
-rosavent                Plot a wind-rose
-tipif                   Standardize the series
+grabeps                 Save the displayed graphic as an EPS file
+rosavent                Wind-rose plot
+windfreq.dat            Wind frequency table

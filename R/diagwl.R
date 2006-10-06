@@ -59,7 +59,7 @@ cat(i,i*10,"\n",labT,"\n",labP,"\n")
   if(lmin==-1.5) lmin=0
   axis(2,((lmin/10):(ymax/10))*10,labels=labT,col.axis=tcol)
   axis(4,((lmin/10):(ymax/10))*10,labels=labP,col.axis=pcol)
-  mtext("°C",2,col=tcol,las=1,line=3,adj=0,at=55)
+  mtext("C",2,col=tcol,las=1,line=3,adj=0,at=55)
   mtext("mm",4,col=pcol,las=1,line=3,adj=1,at=55)
   abline(0,0)
   abline(50,0)
@@ -67,7 +67,7 @@ cat(i,i*10,"\n",labT,"\n",labP,"\n")
   if(is.na(alt)) mtext(est,line=2,adj=0)
   else mtext(paste(est," (",alt," m)",sep=""),line=2,adj=0)
   mtext(per,line=1,adj=0)
-  mtext(paste(round(mean(tm*10))/10,"°C        ",round(sum(p))," mm",sep=""),line=1,adj=1)
+  mtext(paste(round(mean(tm*10))/10,"C        ",round(sum(p))," mm",sep=""),line=1,adj=1)
   x <- 0:13-0.5
   p2 <- c(p[12],p[1:12],p[1])
   if(pmax<=100) {
