@@ -1,0 +1,1 @@
+datcli <- read.table("datcli")

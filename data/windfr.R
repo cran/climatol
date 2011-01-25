@@ -1,0 +1,1 @@
+windfr <- read.table("windfr")

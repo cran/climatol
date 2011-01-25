@@ -6,14 +6,14 @@
 }
 \usage{
 diagwl(dat, est = "", alt = NA, per = "", margen = c(4, 4, 5, 4), mlab = "",
-  pcol = "#005ac8", tcol = "#e81800", pfcol = "cyan", sfcol = "#0eb6d7",
-  shem = FALSE, ...)
+  pcol = "#005ac8", tcol = "#e81800", pfcol = "#79e6e8", sfcol = "#09a0d1",
+  shem = FALSE, p3line=FALSE, ...)
 }
 \arguments{
-  \item{dat}{Monthly climatic data on which the diagram will be plotted.}
+  \item{dat}{Monthly climatic data for which the diagram will be plotted.}
   \item{est}{Name of the climatological station}
   \item{alt}{Altitude of the climatological station}
-  \item{per}{Period of observation}
+  \item{per}{Period on which the averages have been computed}
   \item{margen}{Margins vector for the plot (to be passed to \code{par}).}
   \item{mlab}{Month labels for the X axis:
     \describe{
@@ -27,6 +27,7 @@ diagwl(dat, est = "", alt = NA, per = "", margen = c(4, 4, 5, 4), mlab = "",
   \item{pfcol}{Fill color for probable frosts.}
   \item{sfcol}{Fill color for sure frosts.}
   \item{shem}{Set to \code{TRUE} for southern hemisphere stations.}
+  \item{p3line}{Set to \code{TRUE} to draw a suplementary precipitation line referenced to three times the temperature (as suggested by Bogdan Rosca).}
   \item{\dots}{Other graphic parameters}
 }
 \details{
@@ -39,7 +40,8 @@ diagwl(dat, est = "", alt = NA, per = "", margen = c(4, 4, 5, 4), mlab = "",
     \item{Row 4:}{Absolute monthly minimum temperature}
   }
   This last row is only used to determine the probable frost months
-  (when monthly values are equal or lower than 0°C).
+  (when absolute monthly minimums are equal or lower than 0°C).
+
   If \code{shem=TRUE}, the diagram will begin the plot with the July data,
   to keep the summer period in the central zone of the graphic.
 }
@@ -50,7 +52,7 @@ diagwl(dat, est = "", alt = NA, per = "", margen = c(4, 4, 5, 4), mlab = "",
   Jena.}
 \seealso{\code{\link{plot}}, \code{\link{par}}}
 \examples{
-  data(cli.dat)
-  diagwl(cli.dat,est="Example station",alt=100,per="1961-90",mlab="en")
+  data(datcli)
+  diagwl(datcli,est="Example station",alt=100,per="1961-90",mlab="en")
 }
 \keyword{hplot}

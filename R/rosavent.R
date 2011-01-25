@@ -2,12 +2,12 @@
 rosavent <- function(frec, fnum=4, fint=5, flab=2, ang=3*pi/16,
     col=rainbow(10,.5,.92,start=.33,end=.2), margen=c(0, 0, 4, 0),
     key=TRUE, uni="m/s", ...) {
-  plot.new()
   old.par <- par(no.readonly = TRUE)
   on.exit(par(old.par))
-  if(is.vector(frec)) nr <- 1  #no. de clases de velocidad
-  else nr <- nrow(frec)
-  ndir <- length(frec) #número de direcciones
+  if(is.matrix(frec)) frec <- as.data.frame(frec)
+  #no. de direcciones y clases de velocidad:
+  if(is.vector(frec)) { ndir <- length(frec); nr <- 1 }
+  else { ndir <- length(frec[1,]); nr <- nrow(frec) }
   fmax <- fnum*fint  #frecuencia máxima a señalar con un círculo
   #convertimos las frecuencias a porcentajes:
   tot <- sum(frec)
@@ -48,8 +48,8 @@ rosavent <- function(frec, fnum=4, fint=5, flab=2, ang=3*pi/16,
   else if(flab==1)
     text(fmax*cos(ang),fmax*sin(ang),paste(fmax,"%"))
   if(key) { #leyenda
-    legend(-fmaxi-2*fint,fmaxi,fill=col,legend=attr(frec,"row.names"))
-    text(-fmaxi-1.4*fint,fmaxi+.3*fint,uni)
+    legend(-fmaxi-2.3*fint,fmaxi+2,fill=col,legend=attr(frec,"row.names"))
+    text(-fmaxi-1.4*fint,fmaxi+.9*fint,uni)
   }
   invisible()   #reset old.par (restablecemos parámetros gráficos anteriores)
 }

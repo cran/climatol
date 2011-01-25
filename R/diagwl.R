@@ -1,13 +1,12 @@
 #Diagrama de Walter y Lieth
-diagwl <- function( dat, est="", alt=NA, per="", margen=c(4,4,5,4),
-    mlab="", pcol="#005ac8", tcol="#e81800", pfcol="cyan",
-    sfcol="#0eb6d7", shem=FALSE, ...) {
-  plot.new()
+diagwl <- function(dat, est="", alt=NA, per="", margen=c(4,4,5,4),
+    mlab="", pcol="#005ac8", tcol="#e81800", pfcol="#79e6e8",
+    sfcol="#09a0d1", shem=FALSE, p3line=FALSE, ...) {
   old.par <- par(no.readonly = TRUE)
   on.exit(par(old.par))
   par(mar=margen, pty="s", las=1, new=FALSE)
   nr <- nrow(dat) #no. de filas de datos mensuales
-  if(nrow(dat) < 4) { cat("4 rows of monthly data must be provided\n"); break; }
+  if(nrow(dat) < 4) { cat("Debe haber 4 filas de datos mensuales\n"); break; }
   #etiquetas de los meses
   if(mlab=="es") mlab=c("E","F","M","A","M","J","J","A","S","O","N","D")
   else if(mlab=="en") mlab=c("J","F","M","A","M","J","J","A","S","O","N","D")
@@ -24,21 +23,17 @@ diagwl <- function( dat, est="", alt=NA, per="", margen=c(4,4,5,4),
   else tm <- apply(dat[2:3,],2,mean)  #temperaturas medias mensuales
   pmax <- max(p) #precipitación máxima
   ymax <- 60  #máxima ordenada por defecto
-cat("ymax=",ymax,"\n");
   if(pmax > 300) ymax <- 50 + 10*floor((pmax+100)/200)
-cat("pmax=",pmax,"ymax=",ymax,"\n");
   ymin <- min(-1.5,min(tm)) #mínima ordenada sin redondear
   #ejes:
   if(ymin < -1.5) {
     ymin=floor(ymin/10)*10 #mínima ordenada redondeada
-cat("ymin=",ymin,"\n")
     labT <- paste(ymin)
     labP <- ""
     if(ymin < -10) {
       for(i in (ymin/10+1):-1) {
         labT <- c(labT,i*10)
         labP <- c(labP,"")
-cat(i,i*10,"\n",labT,"\n",labP,"\n")
       }
     }
     labT <- c(labT,"0","10","20","30","40","50","")
@@ -54,7 +49,7 @@ cat(i,i*10,"\n",labT,"\n",labP,"\n")
       labP <- c(labP,100*(2*i-7))
     }
   }
-  plot(0:13-0.5,c(tm[12],tm[1:12],tm[1]),xlim=c(0,12),ylim=c(ymin,ymax),type="l",col=tcol,xaxs="i",yaxs="i",xaxp=c(0,12,12),xlab="",ylab="",xaxt="n",yaxt="n",bty="n",...)
+  plot(0:13-0.5,c(tm[12],tm[1:12],tm[1]),xlim=c(0,12),ylim=c(ymin,ymax),type="n",xaxs="i",yaxs="i",xaxp=c(0,12,12),xlab="",ylab="",xaxt="n",yaxt="n",bty="n")
   lmin <- ymin #mínima ordenada a rotular
   if(lmin==-1.5) lmin=0
   axis(2,((lmin/10):(ymax/10))*10,labels=labT,col.axis=tcol)
@@ -70,6 +65,10 @@ cat(i,i*10,"\n",labT,"\n",labP,"\n")
   mtext(paste(round(mean(tm*10))/10,"C        ",round(sum(p))," mm",sep=""),line=1,adj=1)
   x <- 0:13-0.5
   p2 <- c(p[12],p[1:12],p[1])
+  if(p3line) { #línea adicional de precipitación a escala 1:3
+    yl3 <- c(p[12],p[1:12],p[1])/3
+    yl3[yl3>50] <- 50
+  }
   if(pmax<=100) {
     xl <- x
     yl <- c(p[12],p[1:12],p[1])/2
@@ -160,6 +159,7 @@ cat(i,i*10,"\n",labT,"\n",labP,"\n")
   #tramas:
   pi <- approx(xl[1:n2],yl[1:n2],n=66)$y
   ti <- approx(x,c(tm[12],tm[1:12],tm[1]),n=66)$y
+  ti[ti<0] <- 0 #no poner tramas por debajo del cero
   d <- pi - ti
   xi <- (1:66)/5-0.7
   xw <- subset(xi,d>0) #periodo húmedo
@@ -170,8 +170,13 @@ cat(i,i*10,"\n",labT,"\n",labP,"\n")
   y1 <- subset(pi,d<0)
   y2 <- subset(ti,d<0)
   if(length(xw)>0) segments(xw,y1,xw,y2,col=tcol,lty=3,lwd=2)
+  #heladas seguras
+  for(i in 1:12) if(dat[3,i]<=0) rect(i-1,-1.5,i,0,col=sfcol)
+  #heladas probables
+  for(i in 1:12) if(dat[4,i]<=0 && dat[3,i]>0) rect(i-1,-1.5,i,0,col=pfcol)
   #curvas de P y T:
   lines(xl[1:n2],yl[1:n2],col=pcol,lwd=2)
+  if(p3line) lines(x,yl3)
   lines(x,c(tm[12],tm[1:12],tm[1]),col=tcol,lwd=2)
   #media de las máximas del mes más cálido
   mtext(formatC(max(as.matrix(dat[2,])),digits=1,format="f"),2,las=1,
@@ -181,10 +186,6 @@ cat(i,i*10,"\n",labT,"\n",labP,"\n")
     line=2,at=15)
   #marcar límites de los meses:
   for(i in 0:13) segments(i,0,i,-1.5)
-  #heladas seguras
-  for(i in 1:12) if(dat[3,i]<=0) rect(i-1,-1.5,i,0,col=sfcol)
-  #heladas probables
-  for(i in 1:12) if(dat[4,i]<=0 && dat[3,i]>0) rect(i-1,-1.5,i,0,col=pfcol)
   #rótulos meses:
   mtext(mlab,1,las=1,line=0.5,adj=0.5,at=x[2:13])
   #reset old.par (restablecemos parámetros gráficos anteriores):

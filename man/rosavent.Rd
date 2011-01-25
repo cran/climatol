@@ -11,18 +11,18 @@
     margen = c(0, 0, 4, 0), key = TRUE, uni = "m/s", ...)
 }
 \arguments{
-  \item{frec}{Wind frequencies.}
-  \item{fnum}{Number of reference circumferences to plot.}
-  \item{fint}{Frequency steps (in \%) between reference circumferences.}
+  \item{frec}{Data frame containing the wind frequencies.}
+  \item{fnum}{Number of reference circles to plot.}
+  \item{fint}{Frequency steps (in \%) between reference circles.}
   \item{flab}{
-    Parameter indicating which circumferences must be labelled:
+    Parameter indicating which circles must be labelled:
     \describe{
-      \item{1:}{Label outer circumference only,}
-      \item{2:}{Label all circumferences,}
-      \item{Other value:}{Do not label any circumference.}
+      \item{1:}{Label outer circle only,}
+      \item{2:}{Label all circles,}
+      \item{Other value:}{Do not label any circle.}
     }
   }
-  \item{ang}{Angle along which circumferences will be labelled.}
+  \item{ang}{Angle along which circles will be labelled.}
   \item{col}{Colors to fill the frequency polygons.}
   \item{margen}{Margins vector for the plot (to be passed to \code{par}).}
   \item{key}{Set to FALSE if you do not want a legend of the wind-rose, that
@@ -42,7 +42,7 @@
 }
 \seealso{\code{\link{plot}}, \code{\link{par}}}
 \examples{
-  data(windfreq.dat)
-  rosavent(windfreq.dat,4,4,ang=-3*pi/16,main="Annual windrose")
+  data("windfr")
+  rosavent(windfr, 4, 4, ang=-3*pi/16, main="Annual windrose")
 }
 \keyword{hplot}

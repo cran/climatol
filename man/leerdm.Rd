@@ -1,31 +1,44 @@
 \name{leerdm}
 \alias{leerdm}
-\title{Read the (monthly) climatological series}
+\title{Read the climatological series to homogenize}
 \description{
   Climatological series, and coordinates and names of the stations, are
-  read from \file{VAR\_AI-AF.dat} and \file{VAR\_AI-AF.est} files respectively.
+  read from \file{VAR_ANYI-ANYF.dat} and \file{VAR_ANYI-ANYF.est}
+  files respectively.
 }
 \usage{
-  leerdm(varcli, anyi, anyf, nm=12, b=1, a=0)
+  leerdm(varcli, anyi, anyf, b=1, a=0, na.strings="NA")
 }
 \arguments{
   \item{varcli}{Acronym of the name of the studied climatic variable,
     as in the data file name.}
-  \item{anyi}{Initial year of the data present in the file (four digits)}
-  \item{anyf}{Final year of the data present in the file (four digits)}
-  \item{nm}{Number of series in each station. (Default=12, for monthly data).}
+  \item{anyi}{Initial year of the data present in the file.}
+  \item{anyf}{Final year of the data present in the file.}
   \item{a, b}{Parameters of the optional transformation \code{a+b*dat} to be
     applied to data when read from the files.}
 }
 \details{
-  \code{leerdm} is an internal function used by \code{depudm}, not intended
-  to be called directly by the user.
+  This function was written to be called by \code{homogen}, but may be
+  invoqued by the user to read the climatic series.
 }
 \value{
-  Objects \code{dat} (series data) and \code{est.c} (coordinates and names of
-  the stations) are created, and number of years (\code{na}), number of
-  stations (\code{ne}) and per station number of data (\code{nd}) are
-  also computed.
+  No value is returned by this function, but it generates the following
+  objects in the space memory:
+  \item{ne}{Number of stations.}
+  \item{nd}{Number of data in each station.}
+  \item{dat}{Matrix data read from the input files, with
+  dimensions \code{nd,ne}.}
+  \item{est.c}{Data frame with the coordinates, codes and names of
+  the stations.}
 }
-\seealso{\code{\link{depudm}}}
+\seealso{\code{\link{homogen}}}
+\examples{
+  #As this function only works with files, you must uncompress the
+  #example data in your working directory first. (The example files
+  #can be obtained from http://webs.ono.com/climatol/climatol-dat.zip).
+  #After uncompressing them, we can run:
+  leerdm("Tmin", 1956, 2005)
+  #data are now in the memory space, in objects dat, est.c, ne and nd.
+}
 \keyword{internal}
+\keyword{IO}

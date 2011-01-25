@@ -1,7 +1,0 @@
-cli.dat                 Monthly climatic data of a single station
-depstat                 Compute averages for a specified period
-depudm                  Monthly data homogenization
-diagwl                  Walter & Lieth climatic diagram
-grabeps                 Save the displayed graphic as an EPS file
-rosavent                Wind-rose plot
-windfreq.dat            Wind frequency table
