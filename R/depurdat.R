@@ -3,14 +3,12 @@
 
 #depudm.- Depuración de datos mensuales (o de otra periodicidad).
 depudm <- function(varcli, anyi, anyf, nm=12, a=0, b=1,  wz=.001, deg=FALSE,
-  std=3, nref=10, wa=10000, dz.max=4, mdifm=.05, xf=0, nmd=5, rtrans=0, ndec=1,
+  std=3, nref=10, wa=10000, dz.max=4, mxdif=.005, xf=0, nmd=5, rtrans=0, ndec=1,
   graf=2, aref=FALSE, maxite=50, vmin=NA, vmax=NA) {
   #deg: indica si las coordenadas están en grados
   #nmd: no. mínimo de datos para poder seguir. (Se borrará la estación que
-  #tenga menos datos en cualquier subserie). El mínimo absoluto es 5 términos
-  #si std=3, para que las desv.típicas tengan un mínimo de fiabilidad:
-  if(std==3) nmd <- max(5,nmd)
-  else nmd <- max(3,nmd)
+  #tenga menos datos). El mínimo absoluto es 5 términos:
+  nmd <- max(5,nmd)
   #nref: limitar el no. de datos de referencia
   #xf: vector de fechas (opción para datos diarios)
   if(class(xf)=="Date") fechas <- TRUE else fechas <- FALSE
@@ -30,121 +28,152 @@ depudm <- function(varcli, anyi, anyf, nm=12, a=0, b=1,  wz=.001, deg=FALSE,
   mindist <<- matrix(NA,nd,ne) #distancias mínimas
   used <<- matrix(FALSE,ne,ne) #flags de estaciones usadas
 
-  #proceso de depuración iterativo:
-  repeat {
-    dat.d <<- dat
-    #comprobar si hay algún año con pocos o ningún dato:
-    numdat <- apply(!is.na(dat.d),1,sum)
-    nmin=min(numdat)
-    if(!nmin) { #esto ya se comprueba al principio de homogen()!
-      cat("There are terms with NO DATA!:\n")
-      stop("Cannot continue! Shorten the study period, or add series with data in the empty terms.")
+  dat.d <<- dat #copia de trabajo de los datos a procesar
+  #comprobar si hay algún término con pocos o ningún dato:
+  numdat <- apply(!is.na(dat.d),1,sum)
+  nmin=min(numdat)
+  if(!nmin) {
+    cat("Some terms have become void of data!:\n")
+    stop("Cannot continue! Shorten the study period, add series with data in the empty terms, or loose the outlier rejection.")
+  }
+  #comprobar y eliminar las estaciones con menos de nmd datos:
+  numdat <- apply(!is.na(dat.d),2,sum)
+  nmin=min(numdat)
+  if(nmin<nmd) {
+    cat("There are stations with less than ",nmd," data:\n",sep="")
+    cat("Stations...:",formatC(which(numdat<nmd),0,4),"\n")
+    cat("Nr. of data:",formatC(numdat[numdat<nmd],0,4),"\n")
+    cat("These stations will be deleted in order to proceed:\n")
+    for(idel in which(numdat<nmd)) {
+      z <- paste(est.c[idel,4],"(",idel,") ",est.c[idel,5],sep="")
+      cat(z,"  DELETED\n")
     }
-    #comprobar y eliminar las estaciones con menos de nmd datos:
-    numdat <- apply(!is.na(dat.d),2,sum)
-    nmin=min(numdat)
-    if(nmin<nmd) {
-      cat("There are stations with less than ",nmd," data:\n",sep="")
-      cat("Stations...:",formatC(which(numdat<nmd),0,4),"\n")
-      cat("Nr. of data:",formatC(numdat[numdat<nmd],0,4),"\n")
-      cat("These stations will be deleted in order to preceed:\n")
-      for(idel in which(numdat<nmd)) {
-        z <- paste(est.c[idel,4],"(",idel,") ",est.c[idel,5],sep="")
-        cat(z,"  DELETED\n")
-      }
-      #eliminar las estaciones con pocos datos:
-      estelim(which(numdat<nmd),std=std,wa=wa,wz=wz,deg=deg)
-      next #repetir el proceso desde el principio!
+    #eliminar las estaciones con pocos datos:
+    estelim(which(numdat<nmd),std=std,wa=wa,wz=wz,deg=deg)
+    dat.d <<- dat #actualizar los datos a procesar
+  }
+  dat.na <<- is.na(dat.d) #índice de datos ausentes
+  fac <- nd/(1-apply(dat.na,2,sum)) #factor acelerador de la convergencia
+  fac[fac>5] <- 5 #valor máximo del factor (para evitar divergencias)
+  #primera estima de medias y desviaciones típicas, o conservar anteriores:
+  if(exists("dat.m0")) { #conservar las anteriores si ya existían
+    dat.m <<- dat.m0
+    if(std==3) dat.s <<- dat.s0
+  }
+  else { #estimar medias por diferencias o proporciones
+    datmed <<- apply(dat.d,1,mean,na.rm=TRUE) #serie media global
+    refmed <<- mean(datmed) #media global de referencia
+    dat.m <<- apply(dat.d,2,mean,na.rm=TRUE) #medias de partida
+    if(std==3) {
+      refstd <<- sd(datmed) #desv. típica global de referencia
+      dat.s <<- apply(dat.d,2,sd,na.rm=TRUE) #desv. típ. de partida
     }
-    dat.na <<- is.na(dat.d) #índice de datos ausentes
-    stdrz(std=std) #estandarización (dat.m[, dat.s], dat.z)
-    dat.m0 <- dat.m #copia de las medias
-    #proceso iterativo:  
-    ite <- 0
-    cat("Iterative computation of means, with (optional) outlier removal:\n")
-    cat("Max. difference of means (station)\n")
-    repeat { #iterar hasta estabilizar las medias:
-      ite <- ite+1
-      #cálculo series estimadas estandarizadas (dat.e, dat.c|q1|q3, mindist):
-      #(aquí forzamos aref=FALSE para que no haga autocorrección durante el
-      #cómputo iterativo de la media y la desviación típica)
-      datest(std=std,nr=nref,aref=FALSE)
-      #eliminación automática de los datos anómalos:
-      anom <<- dat.z-dat.e #anomalías
-      anom[dat.na] <<- NA  #no arrastrar anomalías de datos rellenados!
-      #estandarizar las anomalías:
-      anomm <- apply(anom,2,mean,na.rm=TRUE) #anomalías medias
-      anoms <- apply(anom,2,sd,na.rm=TRUE) #desv. típicas de las anomalías
-      for(j in 1:ne) sanom[,j] <<- (anom[,j]-anomm[j])/anoms[j] #an. estand.
-      elim <- abs(sanom)>dz.max #datos a eliminar
-      elim[is.na(elim)] <- FALSE #eliminar los molestos NA
-      nelim <- sum(elim) #no. de datos a eliminar
-      if(nelim>0) { #eliminar los datos originales anómalos
-        #listado de los datos a eliminar:
-        for(i in 1:ne) {
-          for(j in 1:nd) if(elim[j,i]) {
-            do <- dat.d[j,i] #dato original
-            dc <- dat.c[j,i] #dato calculado
-            if(rtrans>0) {
-              if(do>1) do <- do^rtrans
-              if(dc>1) dc <- dc^rtrans
-            }
-            cat(as.character(est.c[i,4]),"(",i,") ",sep="")
-            if(nm>1) cat(anyi+j%/%nm,j%%nm)
-            else if(fechas) cat(format(xf[j]))
-            else cat(j)
-            cat(": ",do," -> ",round(dc,ndec)," (stan=",round(sanom[j,i],2),")",sep="")
-            if(oneref[j,i]) { #no eliminar si sólo tenían una referencia!
-              cat(" Only 1 reference! (Unchanged)")
-              elim[j,i] <- FALSE
-            }
-            cat("\n")
+    switch(std,
+      for(i in 1:ne) dat.m[i] <<- dat.m[i] + refmed - mean(datmed[!is.na(dat.d[,i])]),
+      for(i in 1:ne) dat.m[i] <<- dat.m[i] * refmed / mean(datmed[!is.na(dat.d[,i])]),
+      {
+        for(i in 1:ne) dat.m[i] <<- dat.m[i] + refmed - mean(datmed[!is.na(dat.d[,i])])
+        for(i in 1:ne) dat.s[i] <<- dat.s[i] + refstd - sd(datmed[!is.na(dat.d[,i])])
+      },
+      for(i in 1:ne) dat.m[i] <<- dat.m[i] + refmed - mean(datmed[!is.na(dat.d[,i])])
+    )
+    dat.m0 <<- dat.m #copia de las medias
+  }
+  #estandarizar los datos (obtener dat.z únicamente):
+  stdrz(std=std,mscalc=FALSE)
+  if(std==3) dat.s0 <<- dat.s #copia de las desv. típicas
+  #proceso iterativo:  
+  ite <- 0
+  cat("Iterative computation of missing data, with (optional) outlier removal:\n")
+  cat("Max. data change (station)\n")
+  repeat { #iterar hasta estabilizar los datos estimados y las medias:
+    ite <- ite+1
+    #cálculo series estimadas estandarizadas (dat.e, dat.c, mindist):
+    #(aquí forzamos aref=FALSE para que no haga autocorrección durante el
+    #cómputo iterativo de la media y la desviación típica)
+    datest(std=std,nr=nref,aref=FALSE)
+    #eliminación automática de los datos anómalos:
+    anom <<- dat.z-dat.e #anomalías
+    anom[dat.na] <<- NA  #no arrastrar anomalías de datos rellenados!
+    #estandarizar las anomalías:
+    anomm <- apply(anom,2,mean,na.rm=TRUE) #anomalías medias
+    anoms <- apply(anom,2,sd,na.rm=TRUE) #desv. típicas de las anomalías
+    for(j in 1:ne) sanom[,j] <<- (anom[,j]-anomm[j])/anoms[j] #an. estand.
+    elim <- abs(sanom)>dz.max #datos a eliminar
+    elim[is.na(elim)] <- FALSE #eliminar los molestos NA
+    nelim <- sum(elim) #no. de datos a eliminar
+    if(nelim>0) { #eliminar los datos originales anómalos
+      #listado de los datos a eliminar:
+      for(i in 1:ne) {
+        for(j in 1:nd) if(elim[j,i] & !is.na(oneref[j,i])) {
+          outan[j,iest[i]] <<- sanom[j,i] #guardar la anomalía del outlier
+          do <- dat.d[j,i] #dato original
+          dc <- dat.c[j,i] #dato calculado
+          if(rtrans>0) {
+            if(do>1) do <- do^rtrans
+            if(dc>1) dc <- dc^rtrans
           }
+          cat(as.character(est.c[i,4]),"(",i,") ",sep="")
+          if(nm>1) {
+            me <- j%%nm; if(me==0) me <- 12
+            cat(anyi+j%/%nm,me)
+          }
+          else if(fechas) cat(format(xf[j]))
+          else cat(j)
+          cat(": ",do," -> ",round(dc,ndec)," (stan=",round(sanom[j,i],2),")",sep="")
+          if(oneref[j,i]) { #no eliminar si sólo tenían una referencia!
+            cat(" Only 1 reference! (Unchanged)")
+            elim[j,i] <- FALSE
+            oneref[j,i] <<- NA #evitar repetir este mismo mensaje
+          }
+          cat("\n")
         }
-        dat[elim] <<- NA #eliminación de los datos anómalos
-        dat.na[elim] <<- TRUE #actualización índice de datos ausentes
       }
-      dat.d[dat.na] <<- dat.c[dat.na] #relleno de los datos ausentes
-      stdrz(std=std) #actualizar dat.m[, dat.s] y dat.z
-      maxdif <- max(abs(dat.m-dat.m0))
-      kmaxdif <- which.max(abs(dat.m-dat.m0)) #posición de la máxima dif.
-      #controlar si las medias divergen:
-      if(ite==1) maxdif3 <- 3*maxdif
-      else if(maxdif>maxdif3) {
-        stop("Averages do not converge iteratively! (There must be something weird in the data). Cannot continue!");
-      }
-      cat(round(maxdif,ndec+2)," (",est.c[kmaxdif,4],")\n",sep="")
-      if(maxdif<=mdifm || ite==maxite) {
+      dat[elim] <<- NA #eliminación de los datos anómalos
+      dat.na[elim] <<- TRUE #actualización índice de datos ausentes
+    }
+    dat.d[dat.na] <<- dat.c[dat.na] #relleno de los datos ausentes
+    if(ite>1) {
+      maxddif <- max(abs(dat.d-dat.d0),na.rm=TRUE) #máx. dat. dif.
+      kmaxdif <- ceiling(which.max(abs(dat.d-dat.d0))/nd) #estación máx. dif.
+    }
+    dat.d0 <- dat.d #copia de los datos
+    stdrz(std=std) #actualizar dat.m[, dat.s] y dat.z
+    if(ite>1) {
+      cat(round(maxddif,ndec+2)," (",est.c[kmaxdif,4],")\n",sep="")
+      if(maxddif<=mxdif || ite==maxite) {
         if(ite==maxite) cat("\nAverage computation skipped after",ite,"iterations\n")
         else cat("\n")
         break
       }
-      dat.m0 <- dat.m #copia de las medias
     }
-    #si aref=TRUE, repetir el relleno de lagunas con autocorrección de las
-    #series fragmentadas:
-    if(aref==TRUE) {
-      datest(std=std,nr=nref,aref=TRUE)
-      dat.d[dat.na] <<- dat.c[dat.na] #relleno de los datos ausentes
-      stdrz(std=std) #actualizar dat.m[, dat.s] y dat.z
-    }
-    #grabar los datos depurados de errores puntuales y con lagunas rellenadas:
-    arch <- paste(varcli,"_",anyi,"-",anyf,".dah",sep="") #nombre archivo
-    z <- dat.d
-    if(rtrans>0) z[z>1] <- z[z>1]^rtrans
-    #corregir valores fuera de límites?:
-    if(!is.na(vmin)) z[z<vmin] <- vmin
-    if(!is.na(vmax)) z[z<vmax] <- vmax
-    if(nm>0) ncols <- nm else ncols <- 10
-    write(round(z,ndec),arch,ncolumns=ncols)
-    #calcular los valores finales de las anomalías y sus estandarizaciones:
-    anom <<- dat.z-dat.e #anomalías
-    anom[dat.na] <<- NA  #no arrastrar anomalías de datos rellenados!
-    anomm <- apply(anom,2,mean,na.rm=TRUE) #anomalías medias
-    anoms <- apply(anom,2,sd,na.rm=TRUE) #desv. típicas de las anomalías
-    for(j in 1:ne) sanom[,j] <<- (anom[,j]-anomm[j])/anoms[j] #an. estand.
-    break
   }
+  dat.m0 <<- dat.m #copia de las medias
+  if(std==3) dat.s0 <<- dat.s #copia de las desv. típicas
+  #restablecer valores de oneref:
+  oneref[is.na(oneref)] <<- TRUE
+  #si aref=TRUE, repetir el relleno de lagunas con autocorrección de las
+  #series fragmentadas:
+  if(aref==TRUE) {
+    datest(std=std,nr=nref,aref=TRUE)
+    dat.d[dat.na] <<- dat.c[dat.na] #relleno de los datos ausentes
+    stdrz(std=std) #actualizar dat.m[, dat.s] y dat.z
+  }
+  #grabar los datos depurados de errores puntuales y con lagunas rellenadas:
+  arch <- paste(varcli,"_",anyi,"-",anyf,".dah",sep="") #nombre archivo
+  z <- dat.d
+  if(rtrans>0) z[z>1] <- z[z>1]^rtrans
+  #corregir valores fuera de límites?:
+  if(!is.na(vmin)) z[z<vmin] <- vmin
+  if(!is.na(vmax)) z[z<vmax] <- vmax
+  if(nm>0) ncols <- nm else ncols <- 10
+  write(round(z,ndec),arch,ncolumns=ncols)
+  #calcular los valores finales de las anomalías y sus estandarizaciones:
+  anom <<- dat.z-dat.e #anomalías
+  anom[dat.na] <<- NA  #no arrastrar anomalías de datos rellenados!
+  anomm <- apply(anom,2,mean,na.rm=TRUE) #anomalías medias
+  anoms <- apply(anom,2,sd,na.rm=TRUE) #desv. típicas de las anomalías
+  for(j in 1:ne) sanom[,j] <<- (anom[,j]-anomm[j])/anoms[j] #an. estand.
 }
 
 # Lectura de los datos mensuales (con transformación a+bx opcional):
@@ -161,7 +190,7 @@ leerdm <- function(varcli,anyi,anyf,b=1,a=0,na.strings="NA") {
   nd <<- numdat/ne #no. de datos por estación
   if(nd-floor(nd)>1e-16) {
     cat(ne,"stations read from",arche,"\n")
-    cat(numdat,"data read from",arch,"\n")
+    cat(numdat,"data read from",archd,"\n")
     stop("The number of data is not multiple of the number of stations!")
   }
   dim(dat) <<- c(nd,ne) #conversión de vector a matriz
@@ -185,7 +214,7 @@ matpesos <- function(wa=100, wz=.001, deg=FALSE) {
       dx <- est.c[i,1]-est.c[j,1]
       dy <- est.c[i,2]-est.c[j,2]
       if(deg) {  #convertir grados a km
-        dx <- dx*111*cos((est.c[i,1]+est.c[j,1])*pi/360)
+        dx <- dx*111*cos((est.c[i,2]+est.c[j,2])*pi/360)
         dy <- dy*111
       }
       dz <- (est.c[i,3]-est.c[j,3])*wz
@@ -202,13 +231,15 @@ matpesos <- function(wa=100, wz=.001, deg=FALSE) {
   cat("\nComputing proximity ranks...\n")
   #matriz de rangos de proximidad:
   for(i in 1:ne) est.p[i,] <<- order(est.d[i,])
-  if(ne>100) cat("done! (",date(),")\n",sep="")
+  if(ne>100) cat("Done! (",date(),")\n",sep="")
 }
 
 #estandarización de los valores (genera dat.m, dat.s y dat.z):
-stdrz <- function(std=3) {
-  dat.m <<- apply(dat.d,2,mean,na.rm=TRUE) #medias
-  if(std==3) dat.s <<- apply(dat.d,2,sd,na.rm=TRUE) #desviaciones típicas
+stdrz <- function(std=3,mscalc=TRUE) {
+  if(mscalc) { #calcular medias y, opcionalmente, desviaciones típicas
+    dat.m <<- apply(dat.d,2,mean,na.rm=TRUE) #medias
+    if(std==3) dat.s <<- apply(dat.d,2,sd,na.rm=TRUE) #desviaciones típicas
+  }
   #tipos de estandarización: std=1(diferencias), 2(proporciones),
   #  3(estandarización); 0(ninguna).
   switch(std,
@@ -245,7 +276,7 @@ datest <- function(std=3,nr=10,aref=FALSE) {
       if(!nref) dat.e[j,i] <<- dat.z[j,i] #sin referencia! conservar original
       else {
         #si sólo hay una referencia, marcar para no corregir la serie:
-        if(nref==1) oneref[j,i] <<- TRUE
+        if(nref==1 & !is.na(oneref[j,i])) oneref[j,i] <<- TRUE
         #no permitir datos negativos si std=2 (precipitación, etc):
         if(std==2 & se<0) se <- 0
         dat.e[j,i] <<- se / sw #dato estimado (estandarizado)
@@ -297,7 +328,7 @@ dahstat <- function(varcli, anyi,anyf, anyip=anyi, anyfp=anyf, nm=12, ndec=1,
   fun <- c("mean","median","max","min","sd","quantile")[which(c("med","mdn","max","min","std","q","tnd")==out)]
   arch <- paste(varcli,"_",anyi,"-",anyf,sep="") #raíz nombres de archivo 
   arche <- paste(arch,".esh",sep="") #archivo de estaciones
-  est.c <- read.table(arche) #leer coordenadas y nombres de las estaciones
+  est.c <- read.table(arche,as.is=TRUE) #leer coordenadas y nombres estaciones
   ne <- nrow(est.c) #no. de estaciones
   archd <- paste(arch,".dah",sep="") #archivo de datos homogeneizados
   dah <- scan(archd) #lectura de los datos homogeneizados
@@ -330,15 +361,15 @@ dahstat <- function(varcli, anyi,anyf, anyip=anyi, anyfp=anyf, nm=12, ndec=1,
   val <- matrix(NA,ne,nm)
   #calcular los valores deseados:
   if(out=="tnd") { #tendencias del periodo escogido
-    x <- anyi:anyf #variable independiente
+    x <- anyip:anyfp #variable independiente
     for(i in 1:ne) {
       if(nm==1) { #una sola subserie
-        aj <- lm(dah[1,,i]~x) #regresión lineal
+        aj <- lm(dah[1,(anyip-anyi+1):(anyfp-anyi+1),i]~x) #regresión lineal
         val[i,] <- round(aj$coefficients[2]*pernum,ndec)
       }
       else {
         for(j in 1:nm) {
-          aj <- lm(dah[j,,i]~x) #regresión lineal
+          aj <- lm(dah[j,(anyip-anyi+1):(anyfp-anyi+1),i]~x) #regresión lineal
           val[i,j] <-  round(aj$coefficients[2]*pernum,ndec)
         }
       }
@@ -518,9 +549,10 @@ dd2m <- function(varcli, anyi, anyf, ini, anyip=anyi, anyfp=anyf, ndec=1,
 
 #homogeneización automática iterativa de un conjunto de datos
 homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
-  wd=c(0,0,100), tVt=25, tVf=.02, swa=60, snhtt=50, mdifm=.05, a=0, b=1,
-  wz=.001, deg=FALSE, rtrans=0, std=3, ndec=1, mndat=0, gp=3, leer=TRUE,
-  na.strings="NA", nclust=100, maxite=50, ini="", vmin=NA, vmax=NA) {
+  wd=c(0,0,100), tVt=25, tVf=.02, swa=60, snhtt=50, mxdif=.05, force=FALSE,
+  a=0, b=1, wz=.001, deg=FALSE, rtrans=0, std=3, ndec=1, mndat=0, leer=TRUE,
+  gp=3, na.strings="NA", nclust=100, maxite=50, ini="", vmin=NA, vmax=NA,
+  verb=TRUE) {
   #nref: no. (máximo) de estaciones de referencia
   #wd: Weight distance (km; distancia a la que el peso se reduce a la mitad;
   #    wd=0: todas las estaciones de referencia pesan lo mismo).
@@ -535,15 +567,16 @@ homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
   #nclust: no. máximo de estaciones a usar en el análisis de agrupamiento
   #ini: fecha inicial (para datos diarios, en formato 'AAAA-MM-DD').
   #vmin, vmax: rango de valores permitidos en la variable climática.
+  #force: forzar cortes aun con una sóla referencia.
   #------------------------------------------------------------------  
-  #en caso de error, cerrar archivos de salida
+  #en caso de error, cerrar archivos de salida:
   options(error=cerrar)
   verde <<- hsv(.33,1,.6) #color muy usado
   #si son datos diarios añadir '-d' al nombre de la variable:
   if(nm<1) varcli <- paste(varcli,"-d",sep="")
   #abrir archivo de bitácora y escribir cabecera:
   archlog <- paste(varcli,"_",anyi,"-",anyf,".txt",sep="")
-  sink(archlog,split=TRUE)
+  sink(archlog,split=verb)
   cat("\nHOMOGEN() APPLICATION OUTPUT  (From R's contributed package 'climatol')\n\n")
   cat("\n=========== Homogenization of ",varcli,", ",anyi,"-",anyf,". (",
         date(),")\n",sep="")
@@ -606,6 +639,7 @@ homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
   else {
     if(ini>0) {
       x <- as.Date(0:(nd-1),origin=ini) #vector de fechas
+      x2 <- 1:nd
       xlab <- "Dates"
     }
     else {
@@ -617,6 +651,7 @@ homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
   est.i <<- est.c #datos iniciales de las estaciones
   nsp <- rep(0,nei)  #no. de cortes de cada estación original
   iest <<- 1:ne   #índice señalando la serie original de cada subserie
+  outan <<- matrix(NA,nd,ne) #anomalías de los outliers
   #gráficos iniciales:
   if(gp>0) {
     #activar salida gráfica a documento pdf, con rótulo inicial:
@@ -665,9 +700,10 @@ homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
   }
   if(rtrans>0) { #transformar los datos?
     dat[!is.na(dat)&dat>1] <<- dat[!is.na(dat)&dat>1]^(1/rtrans)
-    #disminuir mdifm si se transforman los datos:
-    z <- 1/(10^rtrans)
-    if(mdifm > z) mdifm <- z
+    #disminuir mxdif si se transforman los datos. Mantener la precisión de
+    #mxdif para una precipitación de 100 mm:
+    z <- (100+mxdif)^(1/rtrans)-100^(1/rtrans)
+    if(mxdif > z) mxdif <- z
   }
   if(gp>0) { #continuamos con los gráficos iniciales
     #histograma de todos los datos (distribución quasi-normal?)
@@ -686,7 +722,7 @@ homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
         dx <- est.c[splc[i],1]-est.c[splc[j],1]
         dy <- est.c[splc[i],2]-est.c[splc[j],2]
         if(deg) {  #convertir grados a km
-          dx <- dx*111*cos((est.c[splc[i],1]+est.c[splc[j],1])*pi/360)
+          dx <- dx*111*cos((est.c[splc[i],2]+est.c[splc[j],2])*pi/360)
           dy <- dy*111
         }
         dz <- (est.c[splc[i],3]-est.c[splc[j],3])*wz
@@ -763,6 +799,7 @@ homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
     cat("\nOnly the initial exploratory graphics were demanded.\nSee them in ",varcli,"_",anyi,"-",anyf,".pdf\n",sep="")
   }
   else { #aplicación iterativa de depudm():
+    if(exists("dat.m0")) rm(dat.m0,pos=1) #borrar posible dat.m0 anterior
     for (k in 1:3) { #proceso en 3 etapas: 1) cortes por ventanas móviles;
       #           2) cortes por SNHT en toda la serie; 3) relleno de lagunas
       if(tVt==0 & k<3) next #no realizar cortes, sólo rellenar lagunas
@@ -783,7 +820,7 @@ homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
         #empezamos por invocar depudm(), que calculará las anomalías y
         #eliminará los datos anómalos:
         depudm(varcli, anyi, anyf, nm=nm, a=a, b=b, wz=wz, deg=deg, std=std,
-          nref=nref[k], wa=wd[k]*wd[k], dz.max=dz.max[k], mdifm=mdifm, xf=x,
+          nref=nref[k], wa=wd[k]*wd[k], dz.max=dz.max[k], mxdif=mxdif, xf=x,
           nmd=mndat, rtrans=rtrans, ndec=ndec, aref=(k==3 & tVt>0),
           maxite=maxite, vmin=vmin, vmax=vmax)
         #en la última etapa, limitarse al último relleno de lagunas:
@@ -827,13 +864,13 @@ homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
           if(max(splt[used[i,]])>tVxx*(1+tVf*min(nref,sum(used[i,])))) break
           kp <- kpx[i] #posición del tVx en la estación i
           cat("\n",as.character(est.c[i,4]),"(",i,")",sep="")
-          if(oneref[kp,i]) cat(" could break at ") #sólo una referencia?
+          if(oneref[kp,i] & !force) cat(" could break at ") #sólo 1 referencia?
           else cat(" breaks at ")
           if(nm>1) cat(anyi+floor((kp-1)/nm)," ",(kp-1)%%nm+1,sep="")
           else if(nm==1) cat(anyi+kp-1)
           else cat(x[kp])
           cat(" (",round(tVx[i],1),")",sep="")
-          if(oneref[kp,i]) { #no cortar con una sóla referencia!:
+          if(oneref[kp,i] & !force) { #no cortar con una sóla referencia!:
             cat(", but it has only one reference\n")
             tVx[i] <<- -1 #pasar el tVx de esta estación a -1
             tVxx <- max(tVx,na.rm=TRUE) #máximo tVx de las estaciones restantes
@@ -870,6 +907,19 @@ homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
             z <- data.frame(est.i[iest[i],1:3],V4=paste(est.i[iest[i],4],"-",1+nsp[iest[i]],sep=""),V5=paste(est.i[iest[i],5],"-",1+nsp[iest[i]],sep=""))
             est.c <<- rbind(est.c,z)
             attr(est.c,"row.names")[ne+nn] <<- as.integer(ne+nn)
+            #estimar las nuevas medias (y desv. típicas?):
+            switch(std,
+              { dat.m0[i] <<- mean(dat[,i],na.rm=TRUE) + refmed - mean(datmed[!is.na(dat[,i])])
+                dat.m0 <<- c(dat.m0, mean(dat[,ne+nn],na.rm=TRUE)+refmed-mean(datmed[!is.na(dat[,ne+nn])])) },
+              { dat.m0[i] <<- mean(dat[,i],na.rm=TRUE) * refmed / mean(datmed[!is.na(dat[,i])])
+                dat.m0 <<- c(dat.m0, mean(dat[,ne+nn],na.rm=TRUE)*refmed/mean(datmed[!is.na(dat[,ne+nn])])) },
+              { dat.m0[i] <<- mean(dat[,i],na.rm=TRUE) + refmed - mean(datmed[!is.na(dat[,i])])
+                dat.m0 <<- c(dat.m0, mean(dat[,ne+nn],na.rm=TRUE)+refmed-mean(datmed[!is.na(dat[,ne+nn])]))
+                dat.s0[i] <<- sd(dat[,i],na.rm=TRUE) + refstd - sd(datmed[!is.na(dat[,i])])
+                dat.s0 <<- c(dat.s0, sd(dat[,ne+nn],na.rm=TRUE)+refstd-sd(datmed[!is.na(dat[,ne+nn])])) },
+              { dat.m0[i] <<- mean(dat[,i],na.rm=TRUE) + refmed - mean(datmed[!is.na(dat[,i])])
+                dat.m0 <<- c(dat.m0, mean(dat[,ne+nn],na.rm=TRUE)+refmed-mean(datmed[!is.na(dat[,ne+nn])])) }
+            )
           }
           #actualizar tVx y banderas para continuar el bucle:
           modif <- TRUE #marcar si se han modificado series
@@ -930,6 +980,8 @@ homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
     }
     #gráficos de anomalías de las series homogeneizadas (con tVx máximos,
     #ordenados por series originales):
+    tVx <<- rep(NA,ne) #(guardaremos los máximos tV finales)
+    snhx <- rep(NA,ne) #(guardaremos los máximos SNHT finales)
     if(gp>1) for(io in 1:nei) { #para cada serie original
       wi <- which(iest==io) #estaciones derivadas de la estación io
       lwi <- length(wi)
@@ -938,7 +990,7 @@ homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
         y <- sanom[,i] #anomalías estandarizadas de la estación
         plotstan(i,varcli,x,xlab,swa,lw)
         #aplicar SNHTw y marcar su tV máximo (si >=1):
-        st <- snhtw(y,swa); zz <- floor(st[1])
+        st <- snhtw(y,swa); zz <- floor(st[1]); tVx[i] <<- st[1]
         if(zz) {
           kp <- st[2]
           lines(rep(x[kp],2),c(-5,4.8),col=verde,lty=2) #marca máximo SNHTw
@@ -948,17 +1000,23 @@ homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
         st <- snht(y)
         if(sum(!is.na(st))>0) {
           kp <- which.max(st)
-          zz <- floor(max(st,na.rm=TRUE))
+          snhx[i] <- floor(max(st,na.rm=TRUE))
+          zz <- floor(snhx[i])
           lines(rep(x[kp],2),c(-5,4.8),lty=4) #marca máximo SNHT
           text(x[kp],-5.2,zz) #valor
         }
         #dibujar la tendencia si es significativa:
-        if(cor.test(y,x)$p.value <= 0.05) {
-          aj <- lm(sanom[,i]~x)
+        if(nm<1) zz <- cor.test(y,x2)$p.value
+        else zz <- cor.test(y,x)$p.value
+        if(zz <= 0.05) {
+          if(nm<1) aj <- lm(y~x2)
+          else aj <- lm(y~x)
           abline(aj,col=4)
         }
       }
     }
+    #anular los tVx que no se han podido calcular:
+    tVx[tVx==0] <- NA
     #gráficas de las series homogeneizadas y sus correcciones:
     if(gp>2 && tVt>0) {
       plot(-1:1,-1:1,type="n",xaxt="n",yaxt="n",bty="n",xlab="",ylab="")
@@ -1021,14 +1079,12 @@ homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
       sac[i] <- max(abs(zz)) #máxima autocorrelación con diferentes desfases
     }
     print(summary(round(sac,2)))
+    #prueba SNHT-w de cada estación
+    cat("\ntVx: Stepped window SNHT (on anomaly series)\n")
+    print(summary(round(tVx,1)))
     #prueba SNHT de cada estación
     cat("\nSNHT: Standard normal homogeneity test (on anomaly series)\n")
-    snh <- rep(NA,ne)
-    for(i in 1:ne) {
-      st <- snht(anom[,i])
-      if(sum(!is.na(st))>0) snh[i] <- round(max(st,na.rm=TRUE),1)
-    }
-    print(summary(snh))
+    print(summary(round(snhx,1)))
     #errores típicos de las estimas (sin estandarizar):
     cat("\nRMSE: Root mean squared error of the estimated data\n")
     #desestandarizamos las anomalías si std>1 :
@@ -1056,24 +1112,43 @@ homogen <- function(varcli, anyi, anyf, nm=12, nref=10, dz.max=5,
     print(summary(pod))
     #imprimir resumen de resultados
     cat("\n")
-    print(data.frame(ACmx=round(sac,2),SNHT=snh,RMSE=round(rmse,sedec),PD=pod,Code=est.c[,4],Name=est.c[,5]),right=FALSE)
+    print(data.frame(ACmx=round(sac,2),tVx=round(tVx,2),SNHT=snhx,RMSE=round(rmse,sedec),PD=pod,Code=est.c[,4],Name=est.c[,5]),right=FALSE)
     #averiguar qué estaciones derivadas funcionan al final del periodo:
     cur <- apply(!is.na(dat[(nd-mndat+1):nd,]),2,sum) #últimos mndat términos
     cur[cur>0] <- 1
     #escribir la nueva tabla de estaciones (con extensión 'esh', añadiendo
-    #el no. de años con datos originales, la estación original, si funciona
+    #el porcentaje de datos originales, la estación original, si funciona
     #actualmente, y el SNHT):
     arch <- paste(varcli,"_",anyi,"-",anyf,".esh",sep="") #nombre del archivo
-    write.table(cbind(est.c,pod,iest,cur,snh),arch,row.names=FALSE,col.names=FALSE)
+    write.table(cbind(est.c,pod,iest,cur,snhx),arch,row.names=FALSE,col.names=FALSE)
     cat("\n----------- Generated outputs: --------------------------------\n\n")
     cat(varcli,"_",anyi,"-",anyf,".txt : This text output\n",sep="")
     cat(varcli,"_",anyi,"-",anyf,".dah : Homogenized data (postprocess with 'dahstat()')\n",sep="")
     cat(varcli,"_",anyi,"-",anyf,".esh : List of homogenized stations (original and split)\n",sep="")
     if(gp>1) { #últimos gráficos
+      #histograma de las anomalías de los outliers:
+      main <- "Histogram of normalized anomalies"
+      if(sum(!is.na(outan))) {
+        xlim <- range(sanom,na.rm=TRUE)
+        xlim[1] <- min(xlim[1], min(outan,na.rm=TRUE))
+        xlim[2] <- max(xlim[2], max(outan,na.rm=TRUE))
+        hist(sanom,breaks=30,xlim=xlim,xlab="Anomaly",col="green",main=main)
+        hist(outan,col="red",add=TRUE)
+      }
+      else hist(sanom,breaks=30,xlab="Anomaly",col="green",main=main)
+      abline(v=-dz.max,col=2); abline(v=dz.max,col=2)
+      #histograma de tVx:
+      z <- tVx; main <- "Histogram of maximum tV"
+#     if(sum(!is.na(z))) hist(z,breaks=min(0,floor(min(z))):max(20,ceiling(max(z))),xlab="tVx",col=verde,main=main)
+      if(sum(!is.na(z))) hist(z,breaks=20,xlab="tVx",col=verde,main=main)
+      #histograma de SNHT:
+      z <- snhx; main <- "Histogram of maximum SNHT"
+#     if(sum(!is.na(z))) hist(z,breaks=min(0,floor(min(z))):max(20,ceiling(max(z))),xlab="SNHT",col="purple",main=main)
+      if(sum(!is.na(z))) hist(z,breaks=20,xlab="SNHT",col="purple",main=main)
       #gráfico de calidad/singularidad:
-      plot(rmse,snh,type="n",xlim=c(0,max(1,max(rmse,na.rm=TRUE))),ylim=c(0,max(50,max(snh,na.rm=TRUE))),xlab="RMSE",ylab="SNHT",main="Station's quality/singularity")
+      plot(rmse,snhx,type="n",xlim=c(0,max(1,max(rmse,na.rm=TRUE))),ylim=c(0,max(50,max(snhx,na.rm=TRUE))),xlab="RMSE",ylab="SNHT",main="Station's quality/singularity")
       grid(col=grey(.4))
-      text(rmse,snh,col=hsv(.7,1,.9))
+      text(rmse,snhx,col=hsv(.7,1,.9))
     }
     if(gp>0) { #cerrar la salida gráfica
       graphics.off() #volcar el buffer del último gráfico

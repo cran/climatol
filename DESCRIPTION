@@ -1,10 +1,10 @@
 Package: climatol
-Version: 2.0
-Date: 2011-01-25
+Version: 2.1
+Date: 2011-06-05
 Title: Some Tools for Climatology: series homogenization, plus windrose
         and Walter&Lieth diagrams
-Author: José A. Guijarro <jguijarrop@aemet.es>
-Maintainer: José A. Guijarro <jguijarrop@aemet.es>
+Author: Jose A. Guijarro <jguijarrop@aemet.es>
+Maintainer: Jose A. Guijarro <jguijarrop@aemet.es>
 Description: Functions to homogenize (outlier and shifts
         detection/correction) climatological series and to list
         climatological summaries of the homogenized results, plus
@@ -12,6 +12,6 @@ Description: Functions to homogenize (outlier and shifts
 Encoding: latin1
 License: GPL (>= 2)
 URL: http://webs.ono.com/climatol/climatol.html
-Packaged: 2011-01-27 12:29:07 UTC; root
+Packaged: 2012-10-29 08:58:24 UTC; ripley
 Repository: CRAN
-Date/Publication: 2011-01-27 17:30:32
+Date/Publication: 2012-10-29 08:58:24

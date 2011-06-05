@@ -2,6 +2,8 @@ HISTORY OF CHANGES IN climatol
 
    Date     Version  Changes
 ----------- -------  -------------------------------------------------
+05-Jun-2011     2.1  Corrected bugs in distance and trend computations
+                     Improved convergence in the missing data recomputation.
 25-Jan-2011     2.0  Too many to explain here. The main novelty is the
                      homogen() function, for an automated homogenization of
                      climatological series. Other functions have been changed

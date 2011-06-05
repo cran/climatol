@@ -8,10 +8,10 @@
 }
 \usage{
   homogen(varcli, anyi, anyf, nm=12,  nref=10, dz.max=5, wd=c(0,0,100),
-    tVt=25, tVf=.02, swa=60, snhtt=50, mdifm=.05, a=0, b=1, wz=.001,
-    deg=FALSE, rtrans=0, std=3, ndec=1, mndat=0, gp=3, leer=TRUE,
-    na.strings="NA", nclust=100, maxite=50, ini="", vmin=NA, vmax=NA)
-}
+    tVt=25, tVf=.02, swa=60, snhtt=50, mxdif=.05, force=FALSE,
+    a=0, b=1, wz=.001, deg=FALSE, rtrans=0, std=3, ndec=1, mndat=0, leer=TRUE,
+    gp=3, na.strings="NA", nclust=100, maxite=50, ini="", vmin=NA, vmax=NA,
+    verb=TRUE) }
 \arguments{
   \item{varcli}{Acronym of the name of the studied climatic variable,
     as in the data file name.}
@@ -29,8 +29,8 @@
   application of SNHT.}
   \item{snhtt}{Threshold value for the SNHT test when applied to the complete
   series.}
-  \item{mdifm}{Maximum difference of the means of the series in consecutive
-  iterations.}
+  \item{mxdif}{Maximum difference of any data item in consecutive iterations.}
+  \item{force}{Force break even when only one reference is available.}
   \item{a, b}{Parameters of the optional transformation \code{a+b*dat} to be
     applied to data when read from the files.}
   \item{wz}{Scale parameter of the vertical coordinate \code{Z}.}
@@ -50,6 +50,8 @@
   be rounded.}
   \item{mndat}{Minimum number of data for a split fragment to become
   a new series.}
+  \item{leer}{set to \code{FALSE} if you read your data with your own
+  R routines.}
   \item{gp}{Graphic parameter:
     \describe{
       \item{0:}{no graphic output,}
@@ -61,8 +63,6 @@
       will be plotted. (Better when working with precipitation data).}
     }
   }
-  \item{leer}{set to \code{FALSE} if you read your data with your own
-  R routines.}
   \item{na.strings}{Character string to be treated as a missing value.
   (It can be a vector of strings, if more than one is needed).}
   \item{nclust}{Maximum number of stations for the cluster analysis. (If much
@@ -77,6 +77,8 @@
   \item{vmax}{Maximum possible value (upper limit) of the studied variable.
   (E.g., set \code{vmax=100} for relative humidity or relative sunshine
   hours).}
+  \item{verb}{Verbosity. Set to \code{FALSE} to avoid messages being output to
+  the console. (They will be in the output log file anyway).}
 }
 \details{
   This function reads the data from two files, and writes its results in
