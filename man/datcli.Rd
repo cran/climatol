@@ -4,7 +4,8 @@
 \title{Monthly climatic data of a single station}
 \description{
   Monthly climatic data, for a single station, of average precipitation,
-  average daily maxima and minima temperatures, and daily minima temperatures.
+  average daily maximum and minimum temperatures, and daily minimum
+  temperatures.
 }
 \usage{data(datcli)}
 \format{A matrix of 4 lines (variables) and 12 columns (months) of data}

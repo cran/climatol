@@ -2,18 +2,34 @@ HISTORY OF CHANGES IN climatol
 
    Date     Version  Changes
 ----------- -------  -------------------------------------------------
-05-Jun-2011     2.1  Corrected bugs in distance and trend computations
-                     Improved convergence in the missing data recomputation.
+01-Oct-2013     2.2  Code optimization allows the process to be completed in
+                     around half the time of the previous version. Original
+                     series can be labeled as homogeneous to keep them
+                     unchanged. Some parameters have more meaningful names (the
+                     old are kept for backward compatibility), and a couple
+                     default values have been changed. dahstat() has a new
+                     option to yield the homogenized series in individual text
+                     files. A map is drawn in the station location figure if
+                     the package 'maps' is installed.
+
+05-Jun-2011     2.1  Corrected bugs in distance and trend computations and an
+                     improved convergence in the missing data recomputation
+                     yiel much better homogenization results.
+
 25-Jan-2011     2.0  Too many to explain here. The main novelty is the
                      homogen() function, for an automated homogenization of
                      climatological series. Other functions have been changed
                      or replaced, so you cannot expect compatibility with the
                      1.x versions.
+
 06-Oct-2006   1.0.3  Change of '°C' by just 'C' to avoid non-ascii characters
                      warnings in the R checking process of the package, and
-                     update of the PDF poster of the documentation
+                     update of the PDF poster of the documentation.
+
 26-May-2006   1.0.2  Minor corrections in the documentation and workaround
                      to avoid 'Error: NAs are not allowed in subscripted
                      assignments', produced when using option sqrtrans=TRUE
-                     in function depudm() since R version 2.0.0 
-01-Nov-2004     1.0  First public release
+                     in function depudm() since R version 2.0.0.
+
+01-Nov-2004     1.0  First public release.
+

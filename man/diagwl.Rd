@@ -5,9 +5,9 @@
   Plot of a Walter \& Lieth climatic diagram of a station.
 }
 \usage{
-diagwl(dat, est = "", alt = NA, per = "", margen = c(4, 4, 5, 4), mlab = "",
-  pcol = "#005ac8", tcol = "#e81800", pfcol = "#79e6e8", sfcol = "#09a0d1",
-  shem = FALSE, p3line=FALSE, ...)
+diagwl(dat, est = "", alt = NA, per = "", margen = c(4, 4, 5, 4),
+mlab = "", pcol = "#005ac8", tcol = "#e81800", pfcol = "#79e6e8",
+sfcol = "#09a0d1", shem = FALSE, p3line=FALSE, ...)
 }
 \arguments{
   \item{dat}{Monthly climatic data for which the diagram will be plotted.}
@@ -44,6 +44,21 @@ diagwl(dat, est = "", alt = NA, per = "", margen = c(4, 4, 5, 4), mlab = "",
 
   If \code{shem=TRUE}, the diagram will begin the plot with the July data,
   to keep the summer period in the central zone of the graphic.
+
+  As described by Walter and Lieth, when monthly precipitation is greater than
+  100 mm, the scale is increased from 2mm/ºC to 20mm/ºC to avoid too high
+  diagrams in very wet locations. This change is indicated by a black
+  horizontal line, and the graph over it is filled in solid blue.
+
+  When the precipitation graph lies under the temperature graph (P < 2T) we
+  have an arid period (filled in dotted red vertical lines). Otherwise the
+  period is considered wet (filled in blue lines), unless \code{p3line=TRUE},
+  that draws a precipitation black line with a scale P = 3T; in this case
+  the period in which 3T > P > 2T is considered semi-arid.
+
+  Daily maximum average temperature of the hottest month and daily minimum
+  average temperature of the coldest month are frequently used in vegetation
+  studies, and are labeled in black at the left margin of the diagram.
 }
 \value{
   No value is returned by this function.
@@ -52,7 +67,7 @@ diagwl(dat, est = "", alt = NA, per = "", margen = c(4, 4, 5, 4), mlab = "",
   Jena.}
 \seealso{\code{\link{plot}}, \code{\link{par}}}
 \examples{
-  data(datcli)
-  diagwl(datcli,est="Example station",alt=100,per="1961-90",mlab="en")
+data(datcli)
+diagwl(datcli,est="Example station",alt=100,per="1961-90",mlab="en")
 }
 \keyword{hplot}

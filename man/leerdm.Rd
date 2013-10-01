@@ -7,7 +7,7 @@
   files respectively.
 }
 \usage{
-  leerdm(varcli, anyi, anyf, b=1, a=0, na.strings="NA")
+leerdm(varcli, anyi, anyf, b=1, a=0, na.strings="NA")
 }
 \arguments{
   \item{varcli}{Acronym of the name of the studied climatic variable,
@@ -33,12 +33,14 @@
 }
 \seealso{\code{\link{homogen}}}
 \examples{
-  #As this function only works with files, you must uncompress the
-  #example data in your working directory first. (The example files
-  #can be obtained from http://webs.ono.com/climatol/climatol-dat.zip).
-  #After uncompressing them, we can run:
-  leerdm("Tmin", 1956, 2005)
-  #data are now in the memory space, in objects dat, est.c, ne and nd.
+#As this function only works with files, you must uncompress the
+#example data in your working directory first. (The example files
+#can be obtained from http://webs.ono.com/climatol/climatol-dat.zip).
+#After uncompressing them, we can run:
+#
+#   leerdm("Tmin", 1956, 2005)
+#
+#data are now in the memory space, in objects dat, est.c, ne and nd.
 }
 \keyword{internal}
 \keyword{IO}
