@@ -1,7 +1,17 @@
-HISTORY OF CHANGES IN climatol
+HISTORY OF CHANGES IN Climatol
 
    Date     Version  Changes
 ----------- -------  -------------------------------------------------
+27-Aug-2016     3.0  Many novelties, with new functions (to prepare the input
+                     data from ODBC accessible data bases, to obtain grids
+                     from the homogenized series, etc) and new functionalities
+                     added to others. The package is now able to deal with
+                     daily data, and can honor stations metada. (Be aware that
+                     some parameters change their names to be more mnemonic).
+
+01-Nov-2013   2.2.1  Bug fixed: a global color re-assignment resulted in
+                     abnormal halt under most O.S.+latest R combination.
+
 01-Oct-2013     2.2  Code optimization allows the process to be completed in
                      around half the time of the previous version. Original
                      series can be labeled as homogeneous to keep them

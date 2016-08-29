@@ -1,5 +1,11 @@
-# Default NAMESPACE created by R
-# Remove the previous line if you edit this file
-
-# Export all names
-exportPattern(".")
+exportPattern("^[[:alpha:]]+")
+importFrom("grDevices", "graphics.off", "gray", "grey", "hsv", "pdf",
+           "rainbow")
+importFrom("graphics", "abline", "axis", "barplot", "boxplot", "grid",
+           "hist", "image", "layout", "legend", "lines", "matlines",
+           "matplot", "mtext", "par", "plot", "points", "polygon",
+           "rect", "segments", "symbols", "text")
+importFrom("stats", "acf", "aggregate", "approx", "cor", "cutree",
+           "dist", "filter", "hclust", "lm", "na.pass", "sd")
+importFrom("utils", "read.csv", "read.table", "write.csv",
+           "write.table")

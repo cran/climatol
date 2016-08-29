@@ -6,9 +6,9 @@
   and can be absolute or relative.
 }
 \usage{
-rosavent(frec, fnum = 4, fint = 5, flab = 2, ang = 3 * pi/16,
-col = rainbow(10, 0.5, 0.92, start = 0.33, end = 0.2),
-margen = c(0, 0, 4, 0), key = TRUE, uni = "m/s", ...)
+rosavent(frec, fnum=4, fint=5, flab=2, ang=3*pi/16,
+col=rainbow(10,0.5,0.92,start=0.33,end=0.2), margen=c(0,0,4,0), key=TRUE,
+uni="m/s", ...)
 }
 \arguments{
   \item{frec}{Data frame containing the wind frequencies.}
@@ -42,7 +42,7 @@ margen = c(0, 0, 4, 0), key = TRUE, uni = "m/s", ...)
 }
 \seealso{\code{\link{plot}}, \code{\link{par}}}
 \examples{
-data("windfr")
+data(windfr)
 rosavent(windfr, 4, 4, ang=-3*pi/16, main="Annual windrose")
 }
 \keyword{hplot}

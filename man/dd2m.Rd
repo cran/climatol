@@ -2,22 +2,23 @@
 \alias{dd2m}
 \title{Compute monthly data from daily series}
 \description{
-  Monthly data are computed from daily series stored in
-  \file{VAR-d_ANYI-ANYF.dah} and saved in \file{VAR-m_ANYI-ANYF.dah}.
+  Daily series are aggregated into total, mean, maximum, or minimum monthly
+  values, and saved to files for further processing.
 }
 \usage{
-dd2m(varcli, anyi, anyf, ini, anyip=anyi, anyfp=anyf, ndec=1,
-valm=2, nmin=15, na.strings="NA", dah=TRUE)
+dd2m(varcli, anyi, anyf, anyip=anyi, anyfp=anyf, ndec=1, suf=NA, valm=2,
+namax=10, na.strings="NA", homog=FALSE, ini=NA)
 }
 \arguments{
   \item{varcli}{Acronym of the name of the studied climatic variable,
     as in the data file name.}
   \item{anyi}{Initial year of the data present in the file.}
   \item{anyf}{Final year of the data present in the file.}
-  \item{ini}{Initial date of the daily data, with format \code{"YYYY-MM-DD"}}.
-  \item{anyip}{First year of the desired period.}
-  \item{anyfp}{Last year of the desired period.}
+  \item{anyip}{First year of the output period. (Defaults to \code{anyi}).}
+  \item{anyfp}{Last year of the output period. (Defaults to \code{anyf}).}
   \item{ndec}{Number of decimal places to be saved in the output file.}
+  \item{suf}{Optional suffix to be added (by a hyphen) to the acronym of the
+  variable to form the name of the input data.}
   \item{valm}{Monthly value to compute:
     \describe{
       \item{1:}{Sum,}
@@ -26,43 +27,40 @@ valm=2, nmin=15, na.strings="NA", dah=TRUE)
       \item{4:}{Minimum.}
     }
   }
-  \item{nmin}{Minimum number of daily available data in a month to compute its
-  monthly value.}
+  \item{namax}{Maximum number of missing data in any month to compute its
+  monthly value. (10 by default)}
   \item{na.strings}{Missing data code in the original daily data.}
-  \item{dah}{Logical value indicating if input daily data are homogenized.
-    (Defaults to \code{TRUE}.}
+  \item{homog}{If \code{TRUE}, monthly aggregation will be performed on daily
+  adjusted from a previous monthly homogenization.}
+  \item{ini}{Initial date of the daily data, with format \code{"YYYY-MM-DD"}.
+  Its default \code{NA} value assume it to be the first day of the period of
+  study.}
 }
 \details{
-  The daily input data may not begin by the first of January, hence the need
-  to indicate the initial date to allow a proper attribution to the correct
-  month. Output monthly data has always 12 data per year, using the \code{NA}
-  code to provide for any missing data.
+This function can be applied to either raw or homogenized daily data.
 
-  Input daily data are read from files with a base name
-  \file{varcli-d_anyi-anyf} (note the \code{-d} appended to the name of the
-  variable to indicate that they are daily data), and extensions \code{.dah}
-  and \code{.esh} for data and station coordinates if you want to compute
-  monthly data from homogenized daily data, or \code{.dat} and \code{.est} if
-  they are raw data. (In this latter case, \code{dah=FALSE} must be specified).
+Raw data are read from files \file{VAR_YEAR-YEAR.dat} and
+\file{VAR_YEAR-YEAR.est}, and monthly data will be saved to
+files \file{VAR-m_YEAR-YEAR.dat} and \file{VAR-m_YEAR-YEAR.est}.
+
+Homogenized data are read from \file{VAR_YEAR-YEAR.rda}. In this case
+monthly data will be saved to files named \file{VAR-mh_YEAR-YEAR.dat} and
+\file{VAR-mh_YEAR-YEAR.est}.
 }
 \value{
   This function does not return any value.
 }
-\seealso{\code{\link{homogen}}}
+\seealso{\code{\link{homogen}}, \code{\link{dahstat}}, \code{\link{dahgrid}}}
 \examples{
-#This function only works with files. In order to run the example,
-#you should run the examples of the homogen function first.
-#Once the results from homogen have been generated, you can run:
+\dontrun{
+#First we must generate the input files from example data:
+data(Ttest)
+write(dat,'Ttest_1981-2000.dat')
+write.table(est.c,'Ttest_1981-2000.est',row.names=FALSE,col.names=FALSE)
+rm(dat,est.c) #remove loaded data from memory space
+#Now we can apply this function to these monthly precipitation data:
 #
-#   dd2m("Tmax", 2007, 2010, ini='2007-01-01')
-#
-#See the resulting monthly mean data in the generated file
-#'Tmin-m_1971-2000.dah'.
-#To take advantage of all the missing daily data estimations, run:
-#
-#   dd2m("Tmax", 2007, 2010, ini='2007-01-01',nmin=0)
-#
-#(The last quarter of 2010 is still NA (not available), because
-#there were no original data it that period).
+dd2m('Ttest',1981,2000)
+}
 }
 \keyword{datagen}

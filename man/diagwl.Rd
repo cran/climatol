@@ -5,9 +5,9 @@
   Plot of a Walter \& Lieth climatic diagram of a station.
 }
 \usage{
-diagwl(dat, est = "", alt = NA, per = "", margen = c(4, 4, 5, 4),
-mlab = "", pcol = "#005ac8", tcol = "#e81800", pfcol = "#79e6e8",
-sfcol = "#09a0d1", shem = FALSE, p3line=FALSE, ...)
+diagwl(dat, est="", alt=NA, per="", margen=c(4, 4, 5, 4), mlab="",
+pcol="#005ac8", tcol="#e81800", pfcol="#79e6e8", sfcol="#09a0d1", shem=FALSE,
+p3line=FALSE, ...)
 }
 \arguments{
   \item{dat}{Monthly climatic data for which the diagram will be plotted.}
@@ -27,7 +27,7 @@ sfcol = "#09a0d1", shem = FALSE, p3line=FALSE, ...)
   \item{pfcol}{Fill color for probable frosts.}
   \item{sfcol}{Fill color for sure frosts.}
   \item{shem}{Set to \code{TRUE} for southern hemisphere stations.}
-  \item{p3line}{Set to \code{TRUE} to draw a suplementary precipitation line referenced to three times the temperature (as suggested by Bogdan Rosca).}
+  \item{p3line}{Set to \code{TRUE} to draw a supplementary precipitation line referenced to three times the temperature (as suggested by Bogdan Rosca).}
   \item{\dots}{Other graphic parameters}
 }
 \details{
@@ -42,8 +42,9 @@ sfcol = "#09a0d1", shem = FALSE, p3line=FALSE, ...)
   This last row is only used to determine the probable frost months
   (when absolute monthly minimums are equal or lower than 0°C).
 
-  If \code{shem=TRUE}, the diagram will begin the plot with the July data,
-  to keep the summer period in the central zone of the graphic.
+  For stations located in the southern hemisphere it is useful to set
+  \code{shem=TRUE}, in order to keep the summer period in the central zone of
+  the graphic (the diagram will begin the plot with the July data).
 
   As described by Walter and Lieth, when monthly precipitation is greater than
   100 mm, the scale is increased from 2mm/ºC to 20mm/ºC to avoid too high
