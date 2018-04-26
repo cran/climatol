@@ -6,7 +6,7 @@ diagwl <- function(dat, est="", alt=NA, per="", margen=c(4,4,5,4),
   on.exit(par(old.par))
   par(mar=margen, pty="s", las=1, new=FALSE)
   nr <- nrow(dat) #no. de filas de datos mensuales
-  if(nrow(dat) < 4) { cat("Debe haber 4 filas de datos mensuales\n"); break; }
+  if(nrow(dat) < 4) stop("Four rows of monthly data should be provided.\n")
   #etiquetas de los meses
   if(mlab=="es") mlab=c("E","F","M","A","M","J","J","A","S","O","N","D")
   else if(mlab=="en") mlab=c("J","F","M","A","M","J","J","A","S","O","N","D")

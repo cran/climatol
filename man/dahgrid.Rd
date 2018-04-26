@@ -18,7 +18,7 @@ ini=NA, obsonly=TRUE)
   \item{anyip}{First year of the desired reference period. (The reference period defaults to the whole period of the data).}
   \item{anyfp}{Last year of the desired reference period.}
   \item{grid}{Grid on which interpolations must be performed.}
-  \item{mh}{If \code{TRUE}, read monthly data from file \file{*-mh_*.dat} (generated after a daily homogenization).}
+  \item{mh}{If \code{TRUE}, read monthly data from file \file{*-mh_*.dat} (generated when daily homogenized series are aggregated into monthly).}
   \item{std}{Type of normalization:
     \describe{
       \item{1:}{deviations from the mean,}
@@ -82,30 +82,24 @@ ini=NA, obsonly=TRUE)
 }
 \seealso{\code{\link{homogen}}}
 \examples{
-\dontrun{
-# This function reads data from files. In order to run the example, you should
-# run the examples of the homogen function first.  Once the results from
-# homogen have been generated, you need to define the grid to use. E.g., for
-# the monthly means of the homogenized Ttest series:
-#
-grd=expand.grid(x=seq(-109,-107.7,.02),y=seq(44,45,.02))
-library(sp)
-coordinates(grd) <- ~ x+y
-#
-# Now we are ready to compute the grided homogenized monthly series:
-#
-dahgrid('Ttest', 1981, 2000, grid=grd, mh=TRUE)
-#
-# The resulting NetCDF file contains normalized values. You can obtain a new
-# file with temperatures in degrees Celsius with externals tools, such as CDO:
-#
-cdo add -mul Ttest-mh_1981-2000.nc Ttest-mh_1981-2000_s.nc \\
-  Ttest-mh_1981-2000_m.nc Ttest-mu_1981-2000.nc
-#
-# But the new grids in Ttest-mu_1981-2000.nc are based on geometric
-# interpolations only, and therefore it is better to build new files
-# Ttest-mh_1981-2000_m.nc and Ttest-mh_1981-2000_s.nc through geostatistical
-# methods.
+if(requireNamespace("ncdf4") & requireNamespace("sp")) {
+  #Set a temporal working directory and write input files:
+  wd <- tempdir()
+  wd0 <- setwd(wd)
+  data(Ptest)
+  dim(dat) <- c(720,20)
+  dat[650:720,5] <- dat[650:720,5]*1.8
+  write(dat[601:720,1:5],'pcp_2001-2010.dat')
+  write.table(est.c[1:5,1:5],'pcp_2001-2010.est',row.names=FALSE,col.names=FALSE)
+  homogen('pcp',2001,2010,std=2) #homogenization
+  #Now run the example:
+  grd <- expand.grid(x=seq(2.9,3.3,.1),y=seq(39.5,39.7,.1))
+  sp::coordinates(grd) <- ~ x+y
+  dahgrid('pcp',2001,2010,grid=grd)
+  #Return to user's working directory:
+  setwd(wd0)
+  #Input and output files can be found in directory:
+  print(wd)
 }
 }
 \keyword{datagen}

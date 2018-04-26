@@ -28,11 +28,20 @@ outrename(varcli, anyi, anyf, suffix, restore=FALSE)
 }
 \seealso{\code{\link{homogen}}}
 \examples{
-\dontrun{
-#After having run the example of the homogen function, you can do:
-outrename("Ptest", 1951, 2010, "old")
-#
-#The previous output files will be renamed to Ptest-old_1951-2010*
-}
+#Set a temporal working directory and write input files:
+wd <- tempdir()
+wd0 <- setwd(wd)
+data(Ptest)
+dim(dat) <- c(720,20)
+dat[601:720,5] <- dat[601:720,5]*1.8
+write(dat[481:720,1:5],'pcp_1991-2010.dat')
+write.table(est.c[1:5,1:5],'pcp_1991-2010.est',row.names=FALSE,col.names=FALSE)
+homogen('pcp',1991,2010,std=2) #homogenization
+#Now run the example:
+outrename('pcp',1991,2010,'ok')
+#Return to user's working directory:
+setwd(wd0)
+#Input and output files can be found in directory:
+print(wd)
 }
 \keyword{utilities}

@@ -31,7 +31,7 @@ namax=10, na.strings="NA", homog=FALSE, ini=NA)
   monthly value. (10 by default)}
   \item{na.strings}{Missing data code in the original daily data.}
   \item{homog}{If \code{TRUE}, monthly aggregation will be performed on daily
-  adjusted from a previous monthly homogenization.}
+  series adjusted from a previous monthly homogenization.}
   \item{ini}{Initial date of the daily data, with format \code{"YYYY-MM-DD"}.
   Its default \code{NA} value assume it to be the first day of the period of
   study.}
@@ -52,15 +52,18 @@ monthly data will be saved to files named \file{VAR-mh_YEAR-YEAR.dat} and
 }
 \seealso{\code{\link{homogen}}, \code{\link{dahstat}}, \code{\link{dahgrid}}}
 \examples{
-\dontrun{
-#First we must generate the input files from example data:
+#Set a temporal working directory and write input files:
+wd <- tempdir()
+wd0 <- setwd(wd)
 data(Ttest)
 write(dat,'Ttest_1981-2000.dat')
 write.table(est.c,'Ttest_1981-2000.est',row.names=FALSE,col.names=FALSE)
 rm(dat,est.c) #remove loaded data from memory space
-#Now we can apply this function to these monthly precipitation data:
-#
+#Now run the example:
 dd2m('Ttest',1981,2000)
-}
+#Return to user's working directory:
+setwd(wd0)
+#Input and output files can be found in directory:
+print(wd)
 }
 \keyword{datagen}

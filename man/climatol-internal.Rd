@@ -5,8 +5,7 @@
 \alias{datmed.sd}
 \alias{snht}
 \alias{snhtw}
-\alias{dat}
-\alias{est.c}
+\alias{unsufix}
 \title{Internal climatol functions}
 \description{
   Internal climatol functions

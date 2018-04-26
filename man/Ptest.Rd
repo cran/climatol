@@ -1,5 +1,7 @@
 \name{Ptest}
 \alias{Ptest}
+\alias{dat}
+\alias{est.c}
 \docType{data}
 \title{Monthly precipitation data}
 \description{

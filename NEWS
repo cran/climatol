@@ -2,12 +2,19 @@ HISTORY OF CHANGES IN Climatol
 
    Date     Version  Changes
 ----------- -------  -------------------------------------------------
+15-Apr-2018     3.1  New file conversion functions daily2climatol(),
+                     rclimdex2climatol and climatol2rclimdex().
+                     New function datsubset() to subset data into new input
+                     files. Bug correction in homogsplit(). Bigger labels in
+                     graphics.
+
 27-Aug-2016     3.0  Many novelties, with new functions (to prepare the input
                      data from ODBC accessible data bases, to obtain grids
                      from the homogenized series, etc) and new functionalities
                      added to others. The package is now able to deal with
-                     daily data, and can honor stations metada. (Be aware that
-                     some parameters change their names to be more mnemonic).
+                     daily data, and can honor stations metadata. (Be aware
+                     that some parameters change their names to be more
+                     mnemonic).
 
 01-Nov-2013   2.2.1  Bug fixed: a global color re-assignment resulted in
                      abnormal halt under most O.S.+latest R combination.

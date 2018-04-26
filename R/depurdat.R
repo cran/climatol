@@ -1,12 +1,265 @@
+#  quizá se pueda arreglar tratando esas series como si fueran diarias...
+#  nref[3]=nref[2] maxdif=mxdif
+
 #depurdat.R.- Depuración y homogeneización de series climatológicas.
 #(Most comments in Spanish; sorry!)
 
-climatol.version <- '3.0'
+climatol.version <- '3.1'
 
 #- cerrar.- Cerrar los archivos de salida.
 cerrar <- function() {
   sink()
   graphics.off()
+}
+
+#- daily2climatol.- Convert DAILY data files to CLIMATOL input format.
+daily2climatol <- function(stfile, stcol=1:6, datcol=1:4, varcli,
+  anyi=NA, anyf=NA, mindat=365, sep='', dec='.', na.strings='NA',
+  header=FALSE) {
+  #stfile: file with the file names and station coordinates, codes and names
+  #stcol: columns in stfile holding file names, longitudes, latitudes, elevations and station codes and names (0 when missing)
+  #datcol: columns in data files holding year,month,day,value (default to 1:4) 
+  #varcli: acronym of the climatic variable under study
+  #anyi: first year to study (defaults to the first year available in data)
+  #anyf: last year to study (defaults to the last year available in data)
+  #mindat: minimum required number of data per station
+  #sep: data separator ('' by default, meaning any white space)
+  #dec: decimal point ('.' by default)
+  #na.strings: strings coding missing data ('NA' by default)
+  #header: does files have a header? (FALSE by default)
+  #read stations file:
+  st <- read.table(stfile,as.is=TRUE,sep=sep,dec=dec,header=header)
+  ne <- nrow(st) #nr. of stations
+  if(is.na(anyi) | is.na(anyf)) { #check the time period of the data:
+    cat('\nChecking the period covered by the data...\n')
+    inidate <- as.Date('3000-12-31'); enddate <- as.Date('0001-01-01')
+    for(i in 1:ne) { #for every station
+      cat(' ',i)
+      d <- read.table(st[i,stcol[1]],sep=sep,dec=dec,header=header,na.strings=na.strings)
+      dates <- as.Date(sprintf('%d-%02d-%02d',d[,datcol[1]],d[,datcol[2]],d[,datcol[3]]))
+      rdates <- range(dates,na.rm=TRUE) #range of dates in the file
+      nadates <- is.na(dates)
+      if(sum(nadates)>0) {
+        cat('Abnormal dates found in file',st[i,stcol[1]],':\n')
+        print(d[nadates,])
+      }
+      dates[is.na(d[,datcol[4]])] <- NA #remove dates without data
+      rdates <- range(dates,na.rm=TRUE) #range of dates with data
+      if(rdates[1]<inidate) inidate <- rdates[1]
+      if(rdates[2]>enddate) enddate <- rdates[2]
+    }
+    cat('\n')
+  } else {
+    if(anyf<anyi) stop('Set initial year (anyi) lower or equal than final year (anyf)')
+    inidate <- as.Date(sprintf('%d-01-01',anyi))
+    enddate <- as.Date(sprintf('%d-12-31',anyf))
+  }
+  dates <- seq(inidate,enddate,by='1 day') #vector of dates
+  nd <- length(dates) #number of dates (=data per station)
+  cat(sprintf('%d days between %s and %s\n',nd,inidate,enddate))
+  dat <- matrix(NA,nd,ne)
+  #populate data matrix:
+  cat('\nGenerating',varcli,'input files for Climatol from daily files...:\n\n')
+  for(i in 1:ne) { #for every station
+    cat(sprintf('%3d %s\n',i,st[i,stcol[1]]))
+    d <- read.table(st[i,stcol[1]],sep=sep,dec=dec,na.strings=na.strings) #data
+    ddates <- as.Date(as.Date(sprintf('%d-%02d-%02d',d[,datcol[1]],d[,datcol[2]],d[,datcol[3]])))
+    kd <- match(ddates,dates) #match data dates with the dates vector
+    #avoid "NAs are not allowed in subscripted assignments" error:
+    if(sum(is.na(kd))>0) { d <- d[!is.na(kd),]; kd <- kd[!is.na(kd)] }
+    ddat <- d[,datcol[4]]
+    dat[kd,i] <- ddat
+  }
+# dat[dat==mis] <- NA #use R missing data code
+  #remove stations without mindat data:
+  ndat <- apply(!is.na(dat),2,sum)
+  sel <- ndat < mindat
+  if(sum(sel)>0) { dat <- dat[,!sel]; st <- st[!sel,] }
+  #write data file:
+  anyi <- format(inidate,'%Y'); anyf <- format(enddate,'%Y')
+  fich <- sprintf('%s_%s-%s.dat',varcli,anyi,anyf)
+  write(dat,fich,ncolumns=10)
+  cat('\nData saved to file',fich,':\n')
+  print(summary(as.vector(dat)))
+  #write stations file:
+  nc <- ncol(st)
+  st <- st[,2:nc]; nc <- nc-1 #remove first column (file names)
+  if(stcol[5]==0) {
+    cod <- as.character(1:ne) #assign station codes
+    if(nc>3) st <- cbind(st[,1:3],cod,st[,4:ncol(st)])
+    else st <- cbind(st,cod) 
+  }
+  if(stcol[6]==0) st <- cbind(st,sprintf('st%04d',1:ne)) #assign names
+  fich <- sprintf('%s_%s-%s.est',varcli,anyi,anyf)
+  write.table(st,fich,row.names=FALSE,col.names=FALSE)
+  cat('\nStation coordinates and names saved to file',fich,':\n')
+  names(st) <- c('X (lon)','Y (lat)','Z (elev)','Code','Name')
+  print(summary(st))
+}
+
+#- rclimdex2climatol.- Convert DAILY data from RClimDex to CLIMATOL.
+rclimdex2climatol <- function(stfile, kvar, varcli='', chrcod=c(6,10),
+  anyi=NA, anyf=NA, mis=-99.9, mindat=365, names=FALSE) {
+  #stfile: file with the station codes and coordinates (in HOMER format)
+  # (data files will be named as in stfile)
+  #kvar.- RClimDex variable to extract: 1(RR), 2(TX), 3(TN)
+  #chrcod: initial and final characters of data file names to use as codes
+  #anyi: initial year to study (defaults to the first year available in data)
+  #anyf: final year to study (defaults to the last year available in data)
+  #mindat: minimum number of data per station
+  #names: station names in the 9th column? (FALSE by default)
+  if(varcli=='') varcli=c('RR','TX','TN')[kvar] #acronym of the variable
+  cat('\nGenerating',varcli,'Climatol input files from RClimDex files...:\n\n')
+  st <- read.table(stfile,as.is=TRUE) #stations
+  ne <- nrow(st)
+  if(is.na(anyi) | is.na(anyf)) { #check the time period of the data:
+    inidate <- as.Date('3000-12-31'); enddate <- as.Date('0001-01-01')
+    for(i in 1:ne) { #for every station
+      d <- read.table(st[i,1])
+      dates <- as.Date(sprintf('%d-%02d-%02d',d[,1],d[,2],d[,3]))
+      rdates <- range(dates,na.rm=TRUE) #range of dates with data
+      nadates <- is.na(dates)
+      if(sum(nadates)>0) {
+        cat('Abnormal dates found in file',st[i,1],':\n')
+        print(d[nadates,])
+      }
+      if(rdates[1]<inidate) inidate <- rdates[1]
+      if(rdates[2]>enddate) enddate <- rdates[2]
+    }
+  }else {
+    if(anyf<anyi) stop('Set initial year (anyi) lower or equal than final year (anyf)')
+    inidate <- as.Date(sprintf('%d-01-01',anyi))
+    enddate <- as.Date(sprintf('%d-12-31',anyf))
+  }
+  dates <- seq(inidate,enddate,by='1 day') #vector of dates
+  nd <- length(dates) #number of dates (=data per station)
+  dat <- matrix(NA,nd,ne)
+  #populate data matrix:
+  for(i in 1:ne) { #for every station
+    cat(st[i,1],'\n')
+    d <- read.table(st[i,1]) #data
+    ddates <- as.Date(sprintf('%d-%02d-%02d',d[,1],d[,2],d[,3]))
+    kd <- match(ddates,dates) #match data dates with the dates vector
+    #avoid "NAs are not allowed in subscripted assignments" error:
+    if(sum(is.na(kd))>0) { d <- d[!is.na(kd),]; kd <- kd[!is.na(kd)] }
+    ddat <- d[,kvar+3]
+    dat[kd,i] <- ddat
+  }
+  dat[dat==mis] <- NA #use R missing data code
+  #remove stations without mindat data:
+  ndat <- apply(!is.na(dat),2,sum)
+  sel <- ndat < mindat
+  if(sum(sel)>0) { dat <- dat[,!sel]; st <- st[!sel,] }
+  #write data file:
+  anyi <- format(inidate,'%Y'); anyf <- format(enddate,'%Y')
+  fich <- sprintf('%s_%s-%s.dat',varcli,anyi,anyf)
+  write(dat,fich,ncolumns=10)
+  cat('\nData from',format(inidate),'to',format(enddate),'saved to file',fich,'\n')
+  #find longest period without concurrent missing data in all stations:
+  avd=apply(!is.na(dat),1,sum)>0
+  if(sum(!avd)>0) {
+    rle=rle(avd)
+    maxrle=which.max(rle$lengths)
+    ki=diffinv(rle$lengths)[maxrle]+1
+    kf=diffinv(rle$lengths)[maxrle+1]
+    cat('The longest period without concurrent missing data in all stations\n')
+    cat('  goes from',format(dates[ki]),'to',format(dates[kf]),'\n')
+  }
+  #write stations file:
+  neg <- st[,5]<0; st[neg,5] <- -st[neg,5]
+  X <- round(st[,5]+st[,6]/60.+st[,7]/3600.,6)
+  X[neg] <- -X[neg]
+  neg <- st[,2]<0; st[neg,2] <- -st[neg,2]
+  Y <- round(st[,2]+st[,3]/60.+st[,4]/3600.,6)
+  Y[neg] <- -Y[neg]
+  cod <- substr(st[,1],chrcod[1],chrcod[2])
+  if(names) df <- data.frame(X,Y,st[,8],cod,st[,9])
+  else df <- data.frame(X,Y,st[,8],cod,cod)
+  fich <- sprintf('%s_%s-%s.est',varcli,anyi,anyf)
+  write.table(df,fich,row.names=FALSE,col.names=FALSE)
+  cat('Station coordinates and names saved to file',fich,'\n\n')
+}
+
+#- climatol2rclimdex.- Convert DAILY data from Climatol to RClimDex.
+#Read homogenized data for the three daily variables, choose the reconstructions
+#from the last homogeneous sub-period, and write them in an RClimDex file.
+# varRR, varTX, varTN.- Name of the variables in the climatol files. If some
+# variable is not available, name it as ''.
+# yiRR, yfRR.- Initial and final years for the RR variable.
+# yiTX, yfTX, yiTN, yfTN.- Initial and final years for the TX and TN variables.
+# (By default they are the same for the three variables; otherwise, the output
+# file will contain data for the common period only).
+climatol2rclimdex <- function(varRR,varTX,varTN,yiRR,yfRR,yiTX=yiRR,
+    yfTX=yfRR,yiTN=yiRR,yfTN=yfRR,prefix='hoclm',dir=NA,na='-99.9',
+    nm=NA, dah=NA, nei=NA, est.c=NA) {
+  anyi <- max(c(yiRR,yiTX,yiTN)) #initial year of the output
+  anyf <- min(c(yfRR,yfTX,yfTN)) #final year of the output
+  if(!is.na(dir)) if(!dir.exists(dir)) dir.create(dir) #output directory
+  fech <- seq(as.Date(sprintf('%s-01-01',anyi)),as.Date(sprintf('%s-12-31',anyf)),by='1 day')
+  ndd <- length(fech) #nr. of daily data per station
+  avl <- rep(FALSE,3) #availability flags
+  cod <- NULL
+  #-------- read results for the three daily variables (if available):
+  #precipitation:
+  if(varRR != '') {
+    load(sprintf('%s_%d-%d.rda',varRR,yiRR,yfRR))
+    if(nm>0) stop(sprintf('Data in %s_%d-%d.rda does not seem to be DAILY!',
+      varRR,yiRR,yfRR))
+    #select series from last homogeneous fragments:
+    fe <- seq(as.Date(sprintf('%s-01-01',yiRR)),as.Date(sprintf('%s-12-31',yfRR)),by='1 day')
+    self <- match(fech,fe) #selected days
+    dRR <- dah[self,1:nei] #selected data
+    sRR <- unsufix(est.c[1:nei,4]) #selected stations
+    if(length(sRR)>0) { avl[1] <- TRUE; cod <- sRR }
+  }
+  #maximum temperatures:
+  if(varTX != '') {
+    load(sprintf('%s_%d-%d.rda',varTX,yiTX,yfTX))
+    if(nm>0) stop(sprintf('Data in %s_%d-%d.rda does not seem to be DAILY!',
+      varTX,yiTX,yfTX))
+    #select series from last homogeneous fragments:
+    fe <- seq(as.Date(sprintf('%s-01-01',yiTX)),as.Date(sprintf('%s-12-31',yfTX)),by='1 day')
+    self <- match(fech,fe) #selected days
+    dTX <- dah[self,1:nei] #selected data
+    sTX <- unsufix(est.c[1:nei,4]) #selected stations
+    if(length(sTX)>0) { 
+      avl[2] <- TRUE
+      if(is.null(cod)) cod <- sTX else cod <- intersect(cod,sTX)
+    }
+  }
+  #minimum temperatures:
+  if(varTN != '') {
+    load(sprintf('%s_%d-%d.rda',varTN,yiTN,yfTN))
+    if(nm>0) stop(sprintf('Data in %s_%d-%d.rda does not seem to be DAILY!',
+      varTN,yiTN,yfTN))
+    #select series from last homogeneous fragments:
+    fe <- seq(as.Date(sprintf('%s-01-01',yiTN)),as.Date(sprintf('%s-12-31',yfTN)),by='1 day')
+    self <- match(fech,fe) #selected days
+    dTN <- dah[self,1:nei] #selected data
+    sTN <- unsufix(est.c[1:nei,4]) #selected stations
+    if(length(sTN)>0) { 
+      avl[3] <- TRUE
+      if(is.null(cod)) cod <- sTN else cod <- intersect(cod,sTN)
+    }
+  }
+  #-------- sort common station codes for the available variables:
+  cod <- sort(cod)
+  #-------- write RClimDex files (one per station):
+  ne <- length(cod) #nr. of stations
+  cat('\nGenerating',ne,'RClimDex files from Climatol homogenizations...:\n\n')
+  for(i in 1:ne) { #for every station
+    cat(' ',cod[i])
+    if(is.na(dir)) stfile <- sprintf('%s%s.txt',prefix,cod[i])
+    else stfile <- sprintf('%s/%s%s.txt',dir,prefix,cod[i])
+    dat <- matrix(NA,ndd,3)
+    if(avl[1]) dat[,1] <- dRR[,which(sRR==cod[i])]
+    if(avl[2]) dat[,2] <- dTX[,which(sTX==cod[i])]
+    if(avl[3]) dat[,3] <- dTN[,which(sTN==cod[i])]
+    df <- data.frame(format(fech,'%Y'),format(fech,'%m'),format(fech,'%d'),dat)
+    write.table(df,stfile,sep='\t',quote=FALSE,row.names=FALSE,
+      col.names=FALSE,na=na)
+  }
+  cat('\n')
 }
 
 #- dahgrid.- Generación de grids de datos homogeneizados.
@@ -71,7 +324,7 @@ dahgrid <- function(varcli, anyi, anyf, anyip=anyi, anyfp=anyf, grid,
     df <- data.frame(est.c[ksel,1:4],m,s)
     names(df) <- c('X','Y','Z','Code','Means','Std.Dev.')
   }
-  fmeans <- sprintf('%s_%d-%d_means.csv',varcli,anyip,anyfp)
+  fmeans <- sprintf('%s_%d-%d_msd.csv',varcli,anyip,anyfp)
   write.csv(df,fmeans,row.names=FALSE)
   #- normalizar las series
   switch(std,
@@ -152,25 +405,32 @@ dahgrid <- function(varcli, anyi, anyf, anyip=anyi, anyfp=anyf, grid,
 }
 
 #- dahstat.- Estadísticas de datos homogeneizados.
-dahstat <- function(varcli, anyi,anyf, anyip=anyi, anyfp=anyf, stat="me",
-  ndc=1, vala=2, cod=NULL, mnpd=0, mxsh=0, prob=.5, last=FALSE, long=FALSE,
-  mh=FALSE, pernys=100, ini=NA, estcol=4, sep=',', dec='.', eol="\n") {
-#stat='tnd' genera también los p-valores, en *.pval
+dahstat <- function(varcli, anyi, anyf, anyip=anyi, anyfp=anyf, stat="me",
+  ndc=NA, vala=2, cod=NULL, mnpd=0, mxsh=0, prob=.5, last=FALSE, long=FALSE,
+  lsnh=FALSE, lerr=FALSE, relref=FALSE, mh=FALSE, pernys=100,
+  estcol=c(1,2,4), sep=',', dec='.', eol="\n", nei=NA, x=NA) {
+#anyip, anyfp= first and last year for statistics calculation.
 #stat="me"(valores medios), "mdn"(medianas), "max"(máximos), "min"(mínimos),
-# "std"(desv.típ.), "q"(cuantiles), "tnd"(tendencias), "series"(todos los datos)
+#  "std"(desv.típ.), "q"(cuantiles), "tnd"(tendencias), "series"(series
+#  secuenciales, en dos únicos ficheros), "mseries"(series mensuales, dos
+#  ficheros por estación)
+#  stat='tnd' genera también los p-valores, en *.pval
 #ndc=no. de decimales (con prioridad sobre el ndec guardado en el *.rda)
 #vala= 0(ninguno), 1(suma), 2(media), 3(máximo), 4(mínimo)
 #cod=lista de códigos de las estaciones a listar
 #mnpd=Mínimo porcentaje de datos originales
 #mxsh=Máximo SNHT
-#last=Listar sólo las estaciones que operaban al final del periodo.
-#long=Listar sólo las estaciones con mayor fragmento original
+#last=Listar solo las series del último periodo homogéneo
+#long=Listar solo las series con mayor fragmento original
+#lsnh=Listar solo las series con menor valor SNHT
+#lerr=Listar solo las series con menor error cuadrático medio
+#relref=Listar también las series de referencia confiables (*Cod)
 #mh=Si TRUE, leer datos mensuales de la homogeneización diaria (*-mh_*.dat)
 #pernys=No. de años sobre los que se expresan las tendencias (100 por defecto)
 #estcol=Columnas de est.c seleccionadas para el listado
-#ini=Fecha inicial, sólo si mh=TRUE: si no se fija se supone que es el 1 de
-#    enero de anyi. (Si mh=FALSE, ini se toma del fichero *.rda)
 #Los parámetros sep, dec y eol permite personalizar los formatos de salida
+#nei=No. inicial de estaciones. (Se obtiene del fichero *.rda).
+#x=vector de fechas. (Se obtiene del fichero *.rda).
   #- inicializaciones
   if(anyi>anyf) stop ('First year of data greater than the last year!')
   if(anyip<anyi) stop("Asked initial year before first year of data!")
@@ -178,117 +438,94 @@ dahstat <- function(varcli, anyi,anyf, anyip=anyi, anyfp=anyf, stat="me",
   #función elegida para el cálculo de los valores mensuales:
   fun <- c("mean","median","max","min","sd","quantile")[which(c("me","mdn","max","min","std","q","tnd")==stat)]
   #- si no se reconoce la opción stat, terminar aquí
-  if(!length(fun) & stat!='series')
+  if(!length(fun) & stat!='series' & stat!='mseries')
     stop(sprintf("Option stat='%s' not recognized!",stat))
   estvar <- c('X','Y','Z','Code','Name','pod','ios','ope','snht')
   mes3 <- c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
-##mes3 <- c("Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic")
   #- leer los datos de entrada
-  if(!mh) load(sprintf('%s_%d-%d.rda',varcli,anyi,anyf))
-  else { #leer los datos mensuales *-mh_*.dat (generados por dd2m)
+  load(sprintf('%s_%d-%d.rda',varcli,anyi,anyf))
+  if(mh) { #leer los datos mensuales *-mh_*.dat (generados por dd2m)
     dah <- scan(sprintf('%s-mh_%d-%d.dat',varcli,anyi,anyf))
-    est.c <- read.table(sprintf('%s-mh_%d-%d.est',varcli,anyi,anyf),colClasses=c("numeric","numeric","numeric","character","character","numeric","numeric","numeric","numeric"))
-    ne <- nrow(est.c)
     nd <- length(dah)/ne
-    est.b <- read.table(sprintf('%s-m_%d-%d.est',varcli,anyi,anyf),colClasses=c("numeric","numeric","numeric","character","character"))
-    nei <- nrow(est.b)
-    nm <- 12 #sólo datos mensuales si mh=TRUE
-    na <- anyf-anyi+1
-    if(nd != na*nm) stop(sprintf('Number of data (%d) is not number of months (%d) times number of years (%d)',nd,nm,na))
+    nm <- 12 #solo datos mensuales si mh=TRUE
+    na <- nd/nm #no. de años
+    if(na!=round(na,9)) stop(sprintf('Number of data (%d) is not number of months (%d) times number of years (%d)',nd,nm,na))
     dim(dah) <- c(nm,na,ne)
-    if(stat=='series') {
+    if(stat=='series' | stat=='mseries') {
       dat <- scan(sprintf('%s-m_%d-%d.dat',varcli,anyi,anyf))
       dim(dat) <- c(nm,na,nei)
-    } else rm(est.b)
+      if(nm<1) stat <- 'series' #datos diarios no producen tablas mensuales
+    }
+  } else {
+    if(nm>0) na <- nd/nm else na <- nd #no. de años o de datos (sub)diarios
+    if(nm<2) dim(dah) <- c(1,na,ne)
   }
-  ndec <- ndc #actualizar el no. de decimales (ndec estaba en el fichero *.rda)
-  if(nm>0) na <- anyf-anyi+1 else na <- nd #no. de años o de datos diarios
-  if(nm<2) {
-    dim(dah) <- c(1,na,ne)
-    if(stat=='series') dim(dat) <- c(1,na,nei)
-  }
-  if(nm<2 | stat=='series') vala <- 0 #valor anual innecesario
+  if(nm<2 | stat=='series' | stat=='mseries') vala <- 0 #valor anual innecesario
   else {
     if(vala<0 | vala>4) vala <- 2 #valor medio en caso de vala erróneo
     funa <- c("sum","mean","max","min")[vala] #función para el valor anual
   }
+  if(!is.na(ndc)) ndec <- ndc #cambiar el no. de decimales ndec del *.rda
   #- seleccionar estaciones solicitadas:
   if(!is.null(cod)) {
     ksel <- which(est.c[,4] %in% cod) #estaciones originales solicitadas
-    ksel <- which(est.c[,7] %in% ksel) #id. madres e hijas
-    dah <- dah[,,ksel] #datos de esas series
-    if(nm<2) dim(dah) <- c(1,na,length(ksel))
-    est.c <- est.c[ksel,] #coordenadas de esas estaciones
-  }
+    esel <- est.c[,7] %in% ksel #id. madres e hijas
+  } else esel <- rep(TRUE,ne)
   #seleccionar las estaciones con un mínimo de mnpd % de datos originales:
-  esel <- est.c[,6]>=mnpd #vector de la selección
+  if(mnpd>0) esel <- esel & est.c[,6]>=mnpd #vector de la selección
   #seleccionar las estaciones con un SNHT menor o igual a mxsh:
   if(mxsh>0) esel <- esel & est.c[,9]<=mxsh #vector de la selección
-  if(last) esel <- esel & as.logical(est.c[,8]) #sólo últimos fragmentos?
-  else if(long) {
+  if(last & ne>nei) esel[(nei+1):ne] <- FALSE #solo últimos fragmentos?
+  else if(long | lsnh | lerr) {
     lsel <- rep(TRUE,length(esel)) #inicializar vector
     for(ko in 1:nei) { #para cada estación original
       kest <- which(est.c[,7]==ko) #series de la misma estación ko
       if(length(kest)>1) { #si hay más de un fragmento...
-        kmax <- which.max(est.c[kest,6]) #cuál tiene mayor % de datos orig.?
-        lsel[kest[-kmax]] <- FALSE #desseleccionamos los fragmentos menores
+        if(long) ksel <- which.max(est.c[kest,6]) #mayor % de datos originales
+        else if(lsnh) ksel <- which.min(est.c[kest,9]) #menor SNHT
+        else ksel <- which.min(est.c[kest,10]) #menor error cuadrático medio
+        lsel[kest[-ksel]] <- FALSE #selecciÓn deseada
       }
     }
     esel <- esel & lsel
   }
+  #eliminar las estaciones de referencia confiables:
+  if(!relref) esel <- esel & substr(est.c[,4],1,1)!='*'
   ne <- sum(esel) #no. de estaciones seleccionadas
   if(ne==0) stop("No station selected: No output")
   dah <- dah[,,esel]
   dim(dah) <- c(max(c(1,nm)),na,sum(esel))
   est.c <- est.c[esel,] #lista de estaciones seleccionadas
   iest <- est.c[,7] #índice de las correspondientes estaciones originales
-  #- if(vala), calcular los valores anuales
-  if(vala) { #calcular los valores anuales
-    aval <- as.vector(apply(dah,2:3,funa))
-    dim(dah) <- c(nm,na*ne)
-    dah <- rbind(dah,aval)
-    nm <- nm+1
-    dim(dah) <- c(nm,na,ne)
+  #- if(stat=="[m]series"), listar las series y sus flags en formato CSV
+  if(stat=='series') { #series secuenciales, en dos únicos ficheros:
+    dim(dah) <- c(nd,ne); dim(dat) <- c(nd,length(dat)/nd)
+    #comparación datos homogeneizados con originales (no usar '=='!):
+    df <- abs(dah-dat[,iest]) < 1e-9
+    df <- as.numeric(df) #TRUE=1, FALSE=0
+    df[df==0] <- 2 #datos distintos a los originales
+    df[df==1] <- 0 #datos iguales a los originales
+    df[is.na(df)] <- 1 #datos rellenados (originales ausentes)
+    dim(df) <- dim(dah)
+    #nombre de los ficheros de salida:
+    ard <- sprintf('%s_%d-%d_series.csv',varcli,anyi,anyf)
+    arf <- sprintf('%s_%d-%d_flags.csv',varcli,anyi,anyf)
+    dah <- data.frame(cbind(format(x),dah))
+    df  <- data.frame(cbind(format(x),df))
+    colnames(dah) <- colnames(df) <- c('Date',est.c[,4])
+    write.table(dah,ard,row.names=FALSE,quote=FALSE,sep=',',dec='.')
+    write.table(df,arf,row.names=FALSE,quote=FALSE,sep=',',dec='.')
+    cat(sprintf('Homogenized values written to %s,\nwith flags in %s:\n',ard,arf))
+    cat('  0: Observed data\n')
+    cat('  1: Missing data (filled in)\n')
+    cat('  2: Corrected data\n')
+    return(invisible())
   }
-  #dimensionar valores a calcular:
-  if(stat!="series") val <- matrix(NA,ne,max(1,nm))
-  if(nm>0) { #valores mensuales, estacionales, anuales, ...
-    x <- anyip:anyfp #vector de años solicitados
-    xk <- x-anyi+1 #posiciones de x dentro de anyi:anyf
-    pernum <- pernys
-  } else { #valores diarios
-    xk <- 1:nd
-    if(is.na(ini)) ini <- sprintf('%d-01-01',anyi) #fecha inicial por defecto
-    x <- seq(as.Date(ini),length.out=nd,by='1 day')
-    pernum <- pernys*365.25
-  }
-  #- if(stat=="tnd"), calcular las tendencias del periodo escogido
-  if(stat=="tnd") { #tendencias del periodo escogido
-    pval=val #matriz para almacenar los p-valores
-    for(i in 1:ne) {
-      if(nm<2) { #una sola subserie
-        aj <- lm(dah[1,xk,i]~x) #regresión lineal
-        val[i,] <- round(aj$coefficients[2]*pernum,ndec)
-        pval[i,] <- round(summary(aj)$coefficients[2,4],3)
-      }
-      else {
-        for(j in 1:nm) {
-          aj <- lm(dah[j,xk,i]~x) #regresión lineal
-          val[i,j] <-  round(aj$coefficients[2]*pernum,ndec)
-          pval[i,j] <- round(summary(aj)$coefficients[2,4],3)
-        }
-      }
-    }
-  }
-  #- else if(stat=="series"), listar los valores (arch. individuales)
-  else if(stat=="series") { #listar en ficheros sueltos con formato CSV
-    # los valores y sus flags (0:=original, 1:rellenado, 2:corregido)
-    for(kest in 1:ne) { #para cada estación homogeneizada seleccionada
-      dh <- dah[,xk,kest] #datos homogeneizados (del periodo solicitado)
-      ik <- iest[kest]
-      if(mh) ik <- which(est.b[,4]==est.c[ik,4]) #(podría cambiar el orden...)
-      do <- dat[,xk,ik] #datos originales (del periodo solicitado)
-      #comparación datos homogeneizados con originales (no usar '=='!):
+  if(stat=='mseries') { #series mensuales, cada estación dos ficheros:
+    xa <- anyi:anyf #vector de años
+    for(kest in 1:ne) { #para cada estación seleccionada
+      dh <- dah[,,kest] #datos homogeneizados
+      do <- dat[,,iest[kest]] #datos originales
       df <- abs(dh-do) < 1e-9
       df <- as.numeric(df) #TRUE=1, FALSE=0
       df[df==0] <- 2 #datos distintos a los originales
@@ -296,25 +533,57 @@ dahstat <- function(varcli, anyi,anyf, anyip=anyi, anyfp=anyf, stat="me",
       df[is.na(df)] <- 1 #datos rellenados (originales ausentes)
       dim(df) <- dim(dh)
       #nombre de los archivos de salida:
-      ard <- sprintf('%s_%d-%d_%s.csv',varcli,anyip,anyfp,est.c[kest,4])
-      arf <- sprintf('%s_%d-%d_%s-flg.csv',varcli,anyip,anyfp,est.c[kest,4])
-      if(nm>1) { dh <- cbind(x,t(dh)); df <- cbind(x,t(df)) }
-      else { dh <- cbind(format(x),dh); df <- cbind(format(x),df) }
+      ard <- sprintf('%s_%d-%d_%s_series.csv',varcli,anyi,anyf,est.c[kest,4])
+      arf <- sprintf('%s_%d-%d_%s_flags.csv',varcli,anyi,anyf,est.c[kest,4])
+      dh <- cbind(xa,t(dh))
+      df  <- cbind(xa,t(df))
       if(nm==12) colnames(dh) <- c('Year',mes3)
-      else if(nm>1) colnames(dh) <- c('Year',as.character(1:nm))
-      else colnames(dh) <- c('Date','Value')
+      else colnames(dh) <- c('Year',as.character(1:nm))
       colnames(df) <- colnames(dh)
-      if(stat=="series") {
-        write.csv(dh,ard,row.names=FALSE,quote=FALSE)
-        write.csv(df,arf,row.names=FALSE,quote=FALSE)
+      write.table(dh,ard,row.names=FALSE,quote=FALSE,sep=',',dec='.')
+      write.table(df,arf,row.names=FALSE,quote=FALSE,sep=',',dec='.')
+    }
+    cat(sprintf('Homogenized values written to %s_%d-%d_CODE_series.csv,\nwith flags in %s_%d-%d_CODE_flags.csv:\n',varcli,anyi,anyf,varcli,anyi,anyf))
+    cat('  0: Observed data\n')
+    cat('  1: Missing data (filled in)\n')
+    cat('  2: Corrected data\n')
+    return(invisible())
+  }
+  #- calcular la posición de los datos del periodo solicitado:
+  if(nm>0) xk <- (anyip-anyi+1):(anyfp-anyi+1)
+  else { #posición de las fechas solicitadas:
+    datef <- as.Date(sprintf('%s-12-31',anyfp)) #fecha final (máxima)
+    xs <- seq(as.Date(sprintf('%s-01-01',anyip)),datef,by='1 day')
+    xk <- match(xs,x) #posiciones de xs dentro de x (vector de fechas completo)
+  }
+  #- if(vala), calcular los valores anuales
+  if(vala & nm>0) { #calcular los valores anuales
+    aval <- as.vector(apply(dah,2:3,funa))
+    dim(dah) <- c(nm,na*ne)
+    dah <- rbind(dah,aval)
+    nm <- nm+1
+    dim(dah) <- c(nm,na,ne)
+  }
+  #dimensionar valores a calcular:
+  val <- matrix(NA,ne,max(1,nm))
+  #- if(stat=="tnd"), calcular las tendencias del periodo escogido
+  if(stat=="tnd") { #tendencias del periodo escogido
+    if(nm>0) pernum <- pernys else pernum <- pernys*365.25
+    pval=val #matriz para almacenar los p-valores
+    for(i in 1:ne) {
+      if(nm<2) { #una sola subserie
+        aj <- lm(dah[1,xk,i]~xk) #regresión lineal
+        val[i,] <- round(aj$coefficients[2]*pernum,ndec)
+        pval[i,] <- round(summary(aj)$coefficients[2,4],3)
+      }
+      else {
+        for(j in 1:nm) {
+          aj <- lm(dah[j,xk,i]~xk) #regresión lineal
+          val[i,j] <-  round(aj$coefficients[2]*pernum,ndec)
+          pval[i,j] <- round(summary(aj)$coefficients[2,4],3)
+        }
       }
     }
-    cat(sprintf('Homogenized values written to %s_%d-%d_*.csv,\nwith flags in %s_%d-%d_*-flg.csv:\n',varcli,anyip,anyfp,varcli,anyip,anyfp))
-    cat('  0: Observed data\n')
-    cat('  1: Missing data (filled)\n')
-    cat('  2: Corrected data\n')
-    ars <- paste(varcli,"_",anyip,"-",anyfp,".pval",sep="") #fichero de salida
-    return(invisible())
   }
   #- else, aplicar la función deseada al periodo escogido
   else { #aplicar la función deseada al periodo escogido
@@ -347,23 +616,76 @@ dahstat <- function(varcli, anyi,anyf, anyip=anyi, anyfp=anyf, stat="me",
   names(dahs) <- ndf
   #- grabar los valores en los ficheros
   #fichero de salida:
-  if(stat=="q") ars <- sprintf('%s_%d-%d_%s%d.csv',varcli,anyip,anyfp,stat,100*prob)
+  if(stat=="q") ars <- sprintf('%s_%d-%d_%s%d.csv',varcli,anyip,anyfp,stat,round(100*prob))
   else ars <- sprintf('%s_%d-%d_%s.csv',varcli,anyip,anyfp,stat)
-  write.csv(dahs,ars,row.names=FALSE,quote=FALSE)
+  write.table(dahs[order(est.c[,4]),],ars,row.names=FALSE,sep=',',dec='.')
   cat("\n  written to",ars,"\n")
   if(stat=="tnd") { #grabar los p-valores
     dahs2 <- data.frame(cbind(est.c[estcol],pval))
     names(dahs2) <- ndf
-##  ars <- paste(varcli,"_",anyip,"-",anyfp,".pval",sep="") #fichero de salida
     ars <- sprintf('%s_%d-%d_pval.csv',varcli,anyip,anyfp)
-    write.csv(dahs2,ars,row.names=FALSE,quote=FALSE)
+    write.table(dahs2[order(est.c[,4]),],ars,row.names=FALSE,sep=',',dec='.')
     cat("P-values written to",ars,"\n")
   }
 }
 
+#- datsubset.- Subset data by selecting a subperiod and/or less missing data.
+datsubset <- function(varcli,anyi,anyf,anyis=anyi,anyfs=anyf,minny=NA) {
+#anyis, anyfs= first and last year for data subsetting.
+#ninny= Minimum number of years with data to subset.
+  if(anyis==anyi & anyfs==anyf & is.na(minny)) stop('No subsetting required!\n')
+  if(anyis<anyi) stop("Asked initial selected year before first year of data!")
+  if(anyfs>anyf) stop("Asked final selected year beyond last year of data!")
+  na <- anyf-anyi+1 #nr. of years in original files
+  nas <- anyfs-anyis+1 #nr. of years in selected subperiod
+  fbas <- sprintf('%s_%d-%d',varcli,anyi,anyf) #raíz nombres de fichero
+  fbas2 <- sprintf('%s_%d-%d',varcli,anyis,anyfs) #raíz nombres ficheros salida
+  est.c <- read.table(sprintf('%s.est',fbas),colClasses=c("numeric","numeric","numeric","character","character"))
+  ne <- nrow(est.c) #no. de estaciones
+  dat <- scan(sprintf('%s.dat',fbas))
+  numdat <- length(dat) #no. de datos leídos
+  nd <- numdat/ne #no. de datos por estación
+  dim(dat) <- c(nd,ne) #conversión de vector a matriz
+  #calcular no. de datos por año y estación:
+  z <- nd/na
+  if(z>=1) nm <- ceiling(z)
+  if(nm > 12) nm <- 0 #datos diarios
+  else if(!nm%in%c(1,2,3,4,6,12)) {
+    cat(sprintf('Computed nr. of data per year/station: %d.\n',nm))
+    stop('  but it should be one of 1, 2, 3, 4, 6 or 12.\n')
+  }
+  #generar vector temporal (x):
+  if(nm>0) tinc <- sprintf('%d months',12/nm) else tinc <- '1 day'
+  x <- seq(as.Date(sprintf('%d-01-01',anyi)),length.out=nd,by=tinc)
+  if(fbas==fbas2) { #renombrar ficheros de entrada para no pisarlos:
+    file.rename(sprintf('%s.dat',fbas),sprintf('%s-bak.dat',fbas))
+    file.rename(sprintf('%s.est',fbas),sprintf('%s-bak.est',fbas))
+    cat(sprintf('Original files renamed to %s-bak.dat and %s-bak.est\n',fbas,fbas))
+  }
+  if(nas < na) { #subset a subperiod of data
+    xa <- strftime(x,"%Y") #años de cada dato
+    sel <- xa>=anyis & xa<=anyfs
+    dat <- dat[sel,]
+  }
+  if(!is.na(minny)) { #subset data with nr. of years with data >= minny
+    nad <- apply(!is.na(dat),2,sum) #nr. of available data per station
+    if(nm>0) nyd <- nad/nm else nyd <- floor(nad/365.25)#nr. of years w data
+    sel <- nyd >= minny
+    if(sum(sel) < ne) {
+      dat <- dat[,sel]
+      est.c <- est.c[sel,]
+    }
+  }
+  #write output files:
+  if(nm>0) ncl <- nm else ncl <- 10
+  write(dat,sprintf('%s.dat',fbas2),ncolumns=ncl)
+  write.table(est.c,sprintf('%s.est',fbas2),col.names=FALSE,row.names=FALSE)
+  cat(sprintf('Subset data written to files %s.dat and %s.est\n',fbas2,fbas2))
+}
+
 #- db2dat.- Get data from a database and build input files *.dat and *.est for
 #the homogen() function. (ODBC must be intalled and properly configured.)
-#----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 #Example for a database called "climate", with user "USER" and password "PASS":
 # R  #start R (version 3 or higher)
 # library(RODBC)
@@ -371,7 +693,7 @@ dahstat <- function(varcli, anyi,anyf, anyip=anyi, anyfp=anyf, stat="me",
 # db2dat('HRel',1961,2015,10,FALSE,ch,'%Y-%m-%d','monthly_relhum','Station',
 # 'Date','Value','stations','Station','Name','Longitude','Latitude','Elevation')
 # odbcClose(ch) #close connection to mcheng
-#----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 # This example will compile monthly average relative humidity for the period
 # 1961-2015 excluding series with less than 10 years of data (120 monthly data)
 # in files HRel_1961-2015.dat and HRel_1961-2015.est, which you can
@@ -465,7 +787,7 @@ dd2m <- function(varcli, anyi, anyf, anyip=anyi, anyfp=anyf, ndec=1, suf=NA,
   valm=2, namax=10, na.strings="NA", homog=FALSE, ini=NA) {
   #suf: sufijo opcional a añadir al nombre de la variable para leer los datos.
   #valm: Valor mensual (1=suma, 2=media, 3=máximo, 4=mínimo)
-  #namax: Máximo no. permitido de datos diarios originalmente ausentes
+  #namax: Máximo no. permitido de datos diarios ausentes originalmente
   #homog: Usar datos ya homogeneizados? (poner homog=TRUE)
   #ini: Fecha inicial. Si es NA se supone que es el 1 de enero de anyi
   fbas <- sprintf('%s_%d-%d',varcli,anyi,anyf) #raíz nombres de fichero
@@ -512,41 +834,44 @@ dd2m <- function(varcli, anyi, anyf, anyip=anyi, anyfp=anyf, ndec=1, suf=NA,
   }
   write(round(dm,ndec),fichsal,ncolumns=12)
   write.table(est.c,fichest,row.names=FALSE,col.names=FALSE)
-  cat("\n\nMonthly",fun,"values output to file",fichsal,"\n")
+  cat("\n\nMonthly",fun,"values saved to file",fichsal,"\n")
   if(namax>0 & !homog) cat('  (Months with more than',namax,'missing original daily data\n  have also been set to missing)\n')
 }
 
 #- homogen.- homogeneización automática de un conjunto de series de datos.
 homogen <- function(varcli, anyi, anyf, suf=NA, nm=NA, nref=c(10,10,4), std=3,
 swa=NA, ndec=1, dz.max=5, dz.min=-dz.max, wd=c(0,0,100), snht1=25, snht2=snht1,
-tol=.02, mxdif=NA, force=FALSE, wz=.001, trf=0, mndat=NA, gp=3, ini=NA,
-na.strings="NA", maxite=50, vmin=NA, vmax=NA, nclust=100,
-clustmethod='ward.D2', grdcol=grey(.5), mapcol=grey(.65), hires=TRUE,
-expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
+tol=.02, maxdif=NA, mxdif=maxdif, maxite=999, force=FALSE, wz=.001, trf=0,
+mndat=NA, gp=3, ini=NA, na.strings="NA", vmin=NA, vmax=NA, nclust=100,
+cutlev=NA, grdcol=grey(.4), mapcol=grey(.4), hires=TRUE, expl=FALSE,
+metad=FALSE, sufbrk='m', tinc=NA, tz='UTC', cex=1.2, verb=TRUE) {
   #varcli: variable climática (acrónimo usado)
   #anyi: año inicial
   #anyf: año final
-  #nm: número de meses. (Si no se fija, se calcula por el no. de datos)
   #suf: sufijo opcional a añadir al nombre de la variable para leer los datos.
+  #nm: número de meses. (Si no se fija, se calcula por el no. de datos)
   #nref: no. (máximo) de estaciones de referencia
   #dz.max: límite superior de tolerancia de anomalías 
   #dz.min: límite inferior de tolerancia de anomalías
   #wd: Weight distance (km; distancia a la que el peso se reduce a la mitad;
   #    wd=0: todas las estaciones de referencia pesan lo mismo).
-  #snht1: Umbral del SNHT en la primera pasada. (snht1=0 sólo rellena lagunas)
-  #snht2: Umbral del SNHT en la segunda pasada. (=snht1 por defecto;
-  #                                              =0 para saltarse la pasada)
+  #snht1: Umbral del SNHT en la primera pasada. (0 to skip stage 1)
+  #snht2: Umbral del SNHT en la segunda pasada. (defaults to snht1. 0 to skip)
   #tol: factor de tolerancia (por referencia disponible) para cortes en cadena
-  #swa: Semi-Window Amplitude (no. de términos; 60 por defecto, o 365 si nm=0). 
+  #swa: Semi-Window Amplitude (nr. of data; 5*nm by default, 365 if daily data).
   #trf: Transformar los datos? (0:no transformar; 1:log(x+1); >1:raíz trf)
   #mndat: Mínimo no. de datos para fragentar las series
   #gp: Parámetro de gráficos. 0=ninguno; 1=anomalías globales e histogramas;
   #    2=id+gráficos mensuales de diagnóstico; 3=id+gráficos de medias anuales
   #    móviles y correcciones; 4=id., pero con sumas anuales móviles
-  #nclust: no. máximo de estaciones a usar en el análisis de agrupamiento
-  #clustmethod: hierarchical clustering method
   #ini: fecha inicial (para datos diarios, en formato 'AAAA-MM-DD').
+  #na.strings: strings marking missing data (NA by default).
+  #maxdif: maximum data difference from previous iteration (ndec/2 by default).
+  #mxdif: old maxdif parameter (maintained for compatilibility).
+  #maxite: maximum number of iterations to compute means (999 by default).
   #vmin, vmax: rango de valores permitidos en la variable climática.
+  #nclust: no. máximo de estaciones a usar en el análisis de agrupamiento
+  #cutlev: level to cut dendrogram to define clusters (automatic by default).
   #force: forzar cortes aun con una sola referencia.
   #wz: factor de escala de z. El valor por defecto es apropiado si z se da en m
   #   y x,y en km. También sirve para sobreponderar z, o para hallar las
@@ -559,20 +884,22 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
   #   indicados en *brk.csv y solo se rellenarán lagunas. (FALSE por defecto).
   #sufbrk: sufijo a añadir al nombre de la variable para leer los metadatos.
   #   ('m' por defecto, para leer breaks detectados a escala mensual).
+  #tinc: time increment between data. Not set by default, but can be defined for subdaily data, as in e.g.: tinc='3 hour'
+  #tz: Time zone. Only relevant for subdaily data. ('UTC' by default.)
+  #cex: Character expansion factor para etiquetas y textos en los gráficos.
   #verb: Ver mensajes del proceso por pantalla (además de en el fichero *.txt).
   # -----------------------------------------------------------------  
   #- inicializaciones
-  warnlt1=FALSE #flag to warn if there were means lower than 1
   #funciones auxiliares:
   datmed.mean <- function(x) mean(datmed[x])
   datmed.sd <- function(x) sd(datmed[x])
   #en caso de error, cerrar archivos de salida:
   options(error=cerrar)
-  #establecer mxdif en función de la precisión elegida:
-  if(is.na(mxdif)) mxdif=10^(-ndec)/2 #0.05 para un decimal
+  #establecer maxdif en función de la precisión elegida:
+  if(is.na(maxdif)) maxdif=10^(-ndec)/2 #0.05 para un decimal
   verde <- hsv(.33,1,.6) #color muy usado
-  #establecer altos umbrales de snht si es una pasada exploratoria:
-  if(expl) snht1=snht2=9999
+  #skip detection stages if metad==TRUE or in exploratory mode:
+  if(expl | metad) snht1 <- snht2 <- 0 #skip detection stages if metad==TRUE
   #dz.min ha de ser negativo!:
   z=dz.min>0; if(sum(z)>0) dz.min[z] <- -dz.min[z]
   #- abrir fichero de bitácora y escribir cabecera
@@ -592,6 +919,7 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
   #parámetros que han de tener 3 valores:
   k <- length(wd); if(k<3) wd <- c(rep(0,3-k),wd)
   k <- length(nref); if(k<3) nref <- c(nref,rep(nref[k],3-k))
+  if(expl) nref[3] <- nref[2] <- nref[1] #keep nr. of references
   k <- length(dz.max); if(k<3) dz.max <- c(dz.max,rep(dz.max[k],3-k))
   k <- length(dz.min); if(k<3) dz.min <- c(dz.min,rep(dz.min[k],3-k))
   #etiquetas mensuales (de tres letras):
@@ -603,16 +931,28 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
   fiche <- sprintf('%s.est',fntr) #nombre del fichero de estaciones
   #leer coordenadas y nombres de las estaciones:
   est.c <- read.table(fiche,colClasses=c("numeric","numeric","numeric","character","character"))
+  names(est.c) <- c('X','Y','Z','Code','Name')
   ne <- nrow(est.c) #no. de estaciones
-  #comprobar si las coordenadas no están en grados:
-  if(max(abs(est.c[,1]))>180 | max(abs(est.c[,2]))>90) deg <- FALSE
-  else {
-    deg <- TRUE
-    if(gp>0) {
-      if(requireNamespace("maps",quietly=TRUE)) mapok <- TRUE else mapok <- FALSE
-      if(hires & requireNamespace("mapdata",quietly=TRUE)) maphr <- TRUE else maphr <- FALSE
+  #comprobar si las coordenadas están en grados:
+  if(max(abs(est.c[,1]))>180 | max(abs(est.c[,2]))>90) {
+    deg <- FALSE
+    if(mean(est.c[,1])>10000 | mean(est.c[,2])>10000) { #from m to km:
+      est.c[,1] <- est.c[,1] / 1000.
+      est.c[,2] <- est.c[,2] / 1000.
     }
-  }
+  } else deg <- TRUE
+# else {
+#   deg <- TRUE
+#   if(gp>0) {
+#..................................
+#Error in get(dbname) : object 'worldHiresMapEnv' not found
+#     if(requireNamespace("maps",quietly=TRUE)) mapok<-TRUE else mapok<-FALSE
+#     if(hires & requireNamespace("mapdata",quietly=TRUE))
+#       maphr <- TRUE else maphr <- FALSE
+#Workaround: put these packages in "Depends"
+#..................................
+#   }
+# }
   fichd <- sprintf('%s.dat',fntr) #nombre del fichero de datos
   dat <- scan(fichd,na.strings=na.strings) #lectura de los datos
   numdat <- length(dat) #no. de datos leídos
@@ -621,16 +961,8 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
     cat(ne,"stations read from",fiche,"\n")
     cat(numdat,"data read from",fichd,"\n")
     stop("The number of data is not multiple of the number of stations!")
-  }
+  } else cat(sprintf('Data matrix: %d data x %d stations\n',nd,ne))
   dim(dat) <- c(nd,ne) #conversión de vector a matriz
-  #- si hay algún término sin datos, emitir aviso y terminar
-  numdat <- apply(!is.na(dat),1,sum) #no. de datos de cada término
-  if(!min(numdat)) {
-    z <- range(which(numdat==0))
-    cat('\n',sum(numdat==0),' time steps (between terms ',z[1],' and ',z[2],') have missing data in all stations!\n',sep='')
-    cat("Cannot continue. (Shorten the study period, or add series with data in those void terms)\n\n")
-    stop()
-  }
   na <- anyf-anyi+1 #no. de años
   nsy <- rep(0,na)   #no. de saltos por año
   if(is.na(nm)) { #calcular no. de datos por año y estación:
@@ -642,7 +974,9 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
       stop('Please set manually the right value of nm (one of 1,2,3,4,6,12)')
     }
   }
-  if(is.na(swa)) { if(nm==0) swa=365 else swa=60 } #valores de swa por defecto
+  #comprobar si los años están completos:
+  if(nm>0 & nd%%nm==0) acomp <- TRUE else acomp <- FALSE
+  if(is.na(swa)) { if(nm==0) swa=365 else swa=5*nm } #valores de swa por defecto
   else if(swa>=nd) swa <- ceiling(nd/4) #evitar semiventana demasiado grande
   #establecer valor de mndat, si no se especificó:
   if(is.na(mndat)) { 
@@ -670,7 +1004,24 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
   #- generar vector temporal x
   if(is.na(ini)) ini <- sprintf('%d-01-01',anyi) #fecha inicial por defecto
   if(nm>0) x <- seq(as.Date(ini),length.out=nd,by=sprintf('%d months',12/nm))
+  else if(!is.na(tinc)) x <- seq(as.POSIXct(ini,tz=tz),length.out=nd,by=tinc)
   else x <- seq(as.Date(ini),length.out=nd,by='1 day')
+  #- si hay algún término sin datos, emitir aviso y terminar
+  numdat <- apply(!is.na(dat),1,sum) #no. de datos de cada término
+  if(!min(numdat)) {
+    fich=sprintf('%s_%d-%d-availability.pdf',varcli,anyi,anyf)
+    pdf(fich,bg='white')
+    plot(x,numdat,type='l',xlab='Time',ylab='Number of data',main='Number of data along time')
+    grid(col=grey(.4))
+    image(x,1:ne,dat,xlab='Time',ylab='Stations',main=paste(varcli,'data availability'),col=4)
+    grid(col=grey(.4))
+    graphics.off()
+    zz <- which(numdat==0); z <- range(zz)
+    cat('\n',sum(numdat==0),' time steps between terms ',z[1],' (',format(x[z[1]]),') and ',z[2],' (',format(x[z[2]]),')\n  have missing data in all stations!\n',sep='')
+    if(length(zz)<=100) print(format(x[which(numdat==0)]))
+    cat(sprintf('(See the figures in %s)',fich),'\n')
+    stop("Cannot continue.\n(Shorten the study period, add series with data in those void terms.)\n\n")
+  }
   nei <- ne  #no. inicial de estaciones
   est.i <- est.c #datos iniciales de las estaciones
   nsp <- rep(0,nei)  #no. de cortes de cada estación original
@@ -679,11 +1030,13 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
   #- if(gp>0), generar gráficos iniciales
   if(gp>0) {
     #activar salida gráfica a documento pdf, con rótulo inicial:
-    pdfname <- paste(varcli,"_",anyi,"-",anyf,".pdf",sep="")
-    pdf(pdfname,title=pdfname)
+    pdfname <- sprintf('%s_%d-%d.pdf',varcli,anyi,anyf)
+    pdf(pdfname,title=pdfname,bg='white')
+    old.par <- par(no.readonly=TRUE)
     plot(-1:1,-1:1,type="n",xaxt="n",yaxt="n",bty="n",xlab="",ylab="")
     text(0,0.4,sprintf("CLIMATOL %s",climatol.version),cex=4)
     text(0,-0.45,paste("Homogenization\ngraphic output of\n",varcli,"\n",anyi,"-",anyf,sep=""),cex=3)
+    par(cex=cex)
     #datos disponibles en cada serie. (Solo si ne<=5*nclust, pues cuando el no.
     #de estaciones es muy grande, el gráfico ocupa mucho espacio):
     if(ne<=5*nclust) {
@@ -692,21 +1045,21 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
     } else cat(sprintf('\nMore than 5*%d stations: Per station data availability graph skipped\n\n',nclust))
     #no. de datos de cada término
     numdat <- apply(!is.na(dat),1,sum)
-    plot(x,numdat,type="l",ylim=c(0,ne),col="blue",xlab='Time',ylab="Nr. of data",main=paste("Nr. of",varcli,"data in all stations"))
+    plot(x,numdat,type="l",ylim=c(0,ne),col="blue",xlab='Time',ylab="Number of data",main=paste("Number of",varcli,"data in all stations"))
     grid(col=grdcol)
     abline(h=5,lty=2,col="green")
     abline(h=3,lty=2,col="red")
     #si hay algún término sin datos no podremos continuar:
     if(!min(numdat)) {
-      stop("At least one term has missing data in all stations! (See the PDF graph)\nCannot continue. (Shorten the study period, or add series with data in those void terms)")
+      cat("At least one term has missing data in all stations! (See the PDF graph)\n")
     }
     #boxplots de los datos de cada estación:
-    if(nm>1) { #boxplots para cada nm (mensuales, etc)
+    if(nm>1 & acomp) { #boxplots para cada nm (mensuales, etc)
       dim(dat) <- c(nm,na,ne) #dimensiones provisionales
       for(me in 1:nm) { #para cada mes
         z <- data.frame(dat[me,,])
         names(z) <- 1:ne
-        #etiqueta del mes (si nm!=12, poner sólo el número):
+        #etiqueta del mes (si nm!=12, poner solo el número):
         if(nm==12) labm <- mes3[me] else labm <- me
         labm <- paste(" (",labm,")",sep="")
         if(ne>nclust) hist(as.matrix(z),xlab=varcli,main=paste("Data values of ",varcli,labm,sep=""),col="wheat")
@@ -718,7 +1071,7 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
       }
       dim(dat) <- c(nd,ne) #restablecer dimensiones de trabajo
     }
-    else if(ne<=nclust) { #un sólo gráfico con los boxplots de cada estación
+    else if(ne<=nclust) { #un solo gráfico con los boxplots de cada estación
       z <- data.frame(dat)
       names(z) <- 1:ne
       boxplot(z,xlab="Stations",ylab="Values",main=paste("Data values of",varcli),col="wheat",border=hsv(.7,1,.9))
@@ -731,7 +1084,7 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
     if(min(dat,na.rm=TRUE)<0) stop('Your data has negative values: cannot apply transformations!')
     if(trf==1) dat <- log1p(dat) else dat <- dat^(1/trf)
     if(is.na(vmin) | vmin<0) vmin <- 0 #evitar valores negativos
-    if(mxdif>0.01) mxdif <- 0.01 #rebajar mxdif
+    if(maxdif>0.01) maxdif <- 0.01 #rebajar maxdif
   }
   if(gp>0) { #continuamos con los gráficos iniciales
     #histograma de todos los datos (distribución quasi-normal?)
@@ -739,7 +1092,7 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
     else main="Histogram of all data"
     hist(dat,xlab=varcli,main=main,col=hsv(.4,1,.8))
     #correlograma de series diferenciadas a nivel mensual (r <-> distancia)
-    #(si hay más de nclust estaciones, sólo de una muestra aleatoria de nclust)
+    #(si hay más de nclust estaciones, solo de una muestra aleatoria de nclust)
     if(ne>nclust) { splc <- sample(1:ne,nclust); nec <- nclust }
     else { splc <- 1:ne; nec <- ne }
     est.d <- matrix(NA,nec,nec) #matriz de distancias
@@ -750,8 +1103,6 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
         if(deg) {  #convertir grados a km
           dx <- dx*111*cos((est.c[splc[i],2]+est.c[splc[j],2])*pi/360)
           dy <- dy*111
-        } else { #convertir m a km
-          dx <- dx/1000.; dy <- dy/1000.
         }
         dz <- (est.c[splc[i],3]-est.c[splc[j],3])*wz
         d2 <- dx*dx+dy*dy+dz*dz #distancia cuadrática
@@ -760,42 +1111,50 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
       }
     }
     data <- dat[,splc] #copia de los datos
-    if(nm>1) { #calcular las series diferenciadas por meses
+    if(nm>1 & acomp) { #calcular las series diferenciadas por meses
       dim(data) <- c(nm,na,nec) #dimensionamos por meses
       difd <- apply(data,c(1,3),diff)
       dim(difd) <- c(nd-nm,nec) #redimensionar
     }
     else difd <- diff(data) #series diferenciadas globalmente
     corm <- cor(difd,use="p") #matriz de correlaciones
-    #eliminar |r|==1 (debidos a estaciones con sólo 2 datos en común):
+    #eliminar |r|==1 (debidos a estaciones con solo 2 datos en común):
     corm[corm==1] <- NA; corm[corm==-1] <- NA
     if(ne>nclust) main <- sprintf('Correlogram of %d sampled series (first differences)',nclust)
     else if(nm>0) main <- "Correlogram of first difference series"
     else main <- "Correlogram of the daily series"
     if(trf) main <- paste(main," (transformed)",sep="")
     xd <- as.vector(est.d); y <- as.vector(corm)
-    plot(xd,y,xlim=c(0,max(est.d,na.rm=TRUE)),xlab="Distance (km)",ylab="Correlation coefficient",main=main,col="blue")
-    grid(col=gray(.4))
+    plot(xd,y,xlim=c(0,max(est.d,na.rm=TRUE)),col="blue",main=main,
+      ylim=c(min(0,min(y,na.rm=TRUE)),1),xlab="Distance (km)",
+      ylab="Correlation coefficient")
+    grid(col=gray(.3)); abline(h=0,col=2)
     if(ne>2) {  #dendrograma de las estaciones
       dism <- dist(corm) #matriz de disimilaridad
       #si hay NA's en la matriz de disimilaridad, no intentar clustering
       if(!sum(is.na(dism))) {
-        hc <- hclust(dism,method=clustmethod)
+        hc <- hclust(dism)
         if(ne>nclust) main <- paste("Dendrogram of",nclust,"sampled stations")
         else main <- "Dendrogram of station clusters"
         plot(hc,xlab="Stations",sub="",ylab="Dissimilarity",main=main)
-        #clasificación de las estaciones cortando por la media más 1 desv.típ.
-        #de las disimilaridades (salvo que el número de clases sea superior
-        #a 9, en cuyo caso se incrementará el corte en .1):
-        cutlev <- mean(hc$height)+sd(hc$height)
+        #clasificación de las estaciones hasta en un máximo de 9 grupos:
+        if(is.na(cutlev)) cutlev <- mean(hc$height)+sd(hc$height)
         repeat {
           ct <- cutree(hc,h=cutlev)
           nc <- length(levels(factor(ct)))
           if(nc<10) break
           cutlev <- cutlev + .1
         }
-        if(nc>1) abline(h=cutlev,col="red",lty=2)
-      } else { #un sólo grupo si dism tiene NA's
+        if(nc>1) {
+          abline(h=cutlev,col="red",lty=2)
+          if(ne<=nclust) { #list station clusters
+            cat('\n-------------------------------------------\n')
+            cat(sprintf('Stations in the %d clusters:\n\n',nc))
+            print(split(est.c[,3:5],ct))
+            cat('---------------------------------------------\n')
+          }
+        }
+      } else { #un solo grupo si dism tiene NA's
         cat("\nNA's in similarity matrix: NO CLUSTER ANALYSIS\n\n")
         nc <- 1; ct <- 1
       }
@@ -805,29 +1164,42 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
         col=rainbow(nc,1,.55)[ct]
         main=paste(varcli," station locations (",nc," clusters)",sep="")
       }
-      if(deg) asp=1/(cos(mean(est.c[,2])*pi/180)) #relación de aspecto
-      if(ne>nclust) { #dibujar símbolos si hay más de nclust estaciones
+      #compute map limits with a 5% margin over station coordinates:
+      zxr <- range(est.c[,1]); zyr <- range(est.c[,2])
+      zxm <- diff(zxr)*.05; zym <- diff(zyr)*.05
+      xlim=c(min(est.c[,1])-zxm, max(est.c[,1])+zxm)
+      ylim=c(min(est.c[,2])-zym, max(est.c[,2])+zym)
+      #now draw the map
+      if(deg) {
+#..........................................
+#Error in get(dbname) : object 'worldHiresMapEnv' not found
+#Error in get(dbname) : object 'worldMapEnv' not found
+  #     if(maphr) z<-try(maps::map('worldHires',col=mapcol,xlim=xlim,ylim=ylim))
+  #     else if(mapok) z<-try(maps::map('world',col=mapcol,xlim=xlim,ylim=ylim))
+#..........................................
+#Workaround: Put these packages in 'Depends' to load them explicitely:
+        if(hires) z<-try(map('worldHires',col=mapcol,xlim=xlim,ylim=ylim),TRUE)
+        else z <- try(map('world',col=mapcol,xlim=xlim,ylim=ylim),TRUE)
+#..........................................
+        if (class(z)=="try-error") plot(0,0,xlim=xlim,ylim=ylim,xlab='',ylab='',asp=1/(cos(mean(zyr)*pi/180)),main=main,type='n')
+#       else { maps::map.axes(); mtext(main,3,line=1,cex=1.7) }
+        else { map.axes(); mtext(main,3,line=1,cex=1.7) }
+      } else plot(0,0,xlim=xlim,ylim=ylim,xlab="X (km)",ylab="Y (km)",asp=1,main=main,type='n')
+      if(ne>99) { #dibujar símbolos si hay más de 99 estaciones
         #dibujar primero en negro las estaciones que no están en la muestra:
-        if(deg) plot(est.c[-splc,1:2],asp=asp,xlab="Longitude (deg)",ylab="Latitude (deg)",pch='+',cex=.5,main=main)
-        else plot(est.c[-splc,1:2],asp=1,xlab="X (km)",ylab="Y (km)",pch='+',cex=.5,main=main)
+        points(est.c[-splc,1:2],pch='+',cex=.5)
         #y ahora las estaciones de la muestra, con sus colores:
         points(est.c[splc,1:2],col=col,pch=ct)
-      }
-      else { #hasta nclust estaciones, poner el número
-        if(deg) plot(est.c[,1:2],type="n",asp=1/(cos(mean(est.c[,2])*pi/180)),xlab="Longitude (deg)",ylab="Latitude (deg)",main=main)
-        else plot(est.c[,1:2],type="n",asp=1,xlab="X (km)",ylab="Y (km)",main=main)
+      } else { #hasta nclust estaciones, poner el número
         text(est.c[,1:2],labels=1:ne,col=col)
       }
       grid(col=gray(.4))
-      if(deg==TRUE) {
-        if(maphr) try(maps::map('worldHires',col=mapcol,add=TRUE))
-        else if(mapok) try(maps::map('world',col=mapcol,add=TRUE))
-      }
     }
     rm(data,difd,corm) #borrar objetos temporales
   }
   #- if(gp==1), terminar (solo se deseaban los gráficos iniciales)
   if(gp==1) {
+    par(old.par)
     graphics.off() #volcar el buffer del último gráfico
     cat("\nOnly the initial exploratory graphics were demanded.\nSee them in ",varcli,"_",anyi,"-",anyf,".pdf\n",sep="")
     sink() #cerrar el fichero de bitácora
@@ -839,7 +1211,7 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
   #  3) relleno de lagunas
   #- abrir archivos de outliers y breaks
   Fout <- file(sprintf('%s_out.csv',fbas),'w')
-  write('"Code","Date","Observed","Suggested","Stand. deviations"',Fout)
+  write('"Code","Date","Observed","Suggested","Anomaly (std.devs.)"',Fout)
   if(!metad) {
     Fbrk <- file(sprintf('%s_brk.csv',fbas),'w')
     write('"Code","Date","SNHT"',Fbrk)
@@ -886,67 +1258,71 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
   if(metad) {
     cat('\nSplitting the series following the metadata file...:\n')
     if(sufbrk=='') fichbrk <- sprintf('%s_%d-%d_brk.csv',varcli,anyi,anyf)
+    else if(nchar(sufbrk>3)) fichbrk <- sprintf('%s_%d-%d_brk.csv',sufbrk,anyi,anyf)
     else fichbrk <- sprintf('%s-%s_%d-%d_brk.csv',varcli,sufbrk,anyi,anyf)
-    brk <- read.csv(fichbrk,colClasses=c("character","character","numeric"))
-    brk[,2] <- as.Date(brk[,2])
+    brk <- read.csv(fichbrk,colClasses=c("character","character","character"))
+    if(!is.na(tinc)) brk[,2] <- as.POSIXct(brk[,2],tz=tz)
+      else brk[,2] <- as.Date(brk[,2])
     nbrk <- nrow(brk); nn <- 0
-    if(nbrk<1) break #sin breaks en el fichero!
-    for(kb in nbrk:1) { #para cada break (en orden inverso):
-      i <- match(brk[kb,1],est.c[,4]) #estación a cortar
-      if(is.na(i)) {
-        cat(sprintf('\nCode %s not found in station list; break skipped',brk[kb,1]))
-        next
-      }
-      kp <- match(brk[kb,2],x) #posición de corte
-      cat(sprintf('\n%s(%d) breaks at %s',est.c[i,4],i,format(x[kp])))
-      if(sum(!is.na(dat[1:(kp-1),i])) < mndat) {
-        dat[1:(kp-1),i] <- NA
-        cat(" Fragment with less than",mndat,"data DELETED")
-      }
-      else if(sum(!is.na(dat[kp:nd,i])) < mndat) {
-        dat[kp:nd,i] <- NA
-        cat(" Fragment with less than",mndat,"data DELETED")
-      }
-      else {
-        nn <- nn+1 #incrementamos el no. de nuevas series
-        iest <- c(iest,iest[i]) #añadir índice a la serie original
-        nsp[iest[i]] <- nsp[iest[i]]+1 #y también su no. de saltos
-        if(nm>0) { #contar no. de saltos por año
-          z <- 1 + floor((kp-1)/nm) #término anual del salto
-          nsy[z] <- nsy[z] + 1 #no. de saltos por año
+    if(nbrk<1) cat('No break-points in the metadata file.\n')
+    else {
+      for(kb in 1:nbrk) { #para cada break:
+        i <- match(brk[kb,1],est.c[,4]) #estación a cortar
+        if(is.na(i)) {
+          cat(sprintf('\nCode %s not found in station list; break skipped',brk[kb,1]))
+          next
         }
-        dat <- cbind(dat,rep(NA,nd)) #nueva columna de datos
-        #pasar los datos a la nueva serie:
-        dat[kp:nd,ne+nn] <- dat[kp:nd,i]
-        dat[kp:nd,i] <- NA #borrar los datos pasados a la nueva serie
-        #copiar las coordenadas y poner sufijo a indicativo y nombre:
-        #(Usamos la lista original de estaciones, por si se borra alguna)
-        z <- data.frame(est.i[iest[i],1:3],paste(est.i[iest[i],4],"-",1+nsp[iest[i]],sep=""),paste(est.i[iest[i],5],"-",1+nsp[iest[i]],sep=""))
-        names(z) <- names(est.i)
-        est.c <- rbind(est.c,z)
-        switch(std,
-          { dat.m[i] <- mean(dat[,i],na.rm=TRUE) + refmed - mean(datmed[!is.na(dat[,i])])
-            dat.m <- c(dat.m, mean(dat[,ne+nn],na.rm=TRUE)+refmed-mean(datmed[!is.na(dat[,ne+nn])])) },
-          { dat.m[i] <- mean(dat[,i],na.rm=TRUE) * refmed / mean(datmed[!is.na(dat[,i])])
-            dat.m <- c(dat.m, mean(dat[,ne+nn],na.rm=TRUE)*refmed/mean(datmed[!is.na(dat[,ne+nn])])) },
-          { dat.m[i] <- mean(dat[,i],na.rm=TRUE) + refmed - mean(datmed[!is.na(dat[,i])])
-            dat.m <- c(dat.m, mean(dat[,ne+nn],na.rm=TRUE)+refmed-mean(datmed[!is.na(dat[,ne+nn])]))
-            dat.s[i] <- sd(dat[,i],na.rm=TRUE) + refstd - sd(datmed[!is.na(dat[,i])])
-            dat.s <- c(dat.s, sd(dat[,ne+nn],na.rm=TRUE)+refstd-sd(datmed[!is.na(dat[,ne+nn])])) },
-          { dat.m[i] <- mean(dat[,i],na.rm=TRUE) + refmed - mean(datmed[!is.na(dat[,i])])
-            dat.m <- c(dat.m, mean(dat[,ne+nn],na.rm=TRUE)+refmed-mean(datmed[!is.na(dat[,ne+nn])])) }
-        )
+        kp <- match(brk[kb,2],x) #posición de corte
+        if(is.na(tinc)) cat(sprintf('\n%s(%d) breaks at %s',est.c[i,4],i,format(x[kp])))
+        else cat(sprintf('\n%s(%d) breaks at %s',est.c[i,4],i,format(x[kp],tz=tz,usetz=TRUE)))
+        if(sum(!is.na(dat[1:(kp-1),i])) < mndat) {
+          dat[1:(kp-1),i] <- NA
+          cat(" Fragment with less than",mndat,"data DELETED\n")
+        } else if(sum(!is.na(dat[kp:nd,i])) < mndat) {
+          dat[kp:nd,i] <- NA
+          cat(" Fragment with less than",mndat,"data DELETED\n")
+        } else {
+          nn <- nn+1 #incrementamos el no. de nuevas series
+          iest <- c(iest,iest[i]) #añadir índice a la serie original
+          nsp[iest[i]] <- nsp[iest[i]]+1 #y también su no. de saltos
+          if(nm>0) { #contar no. de saltos por año
+            z <- 1 + floor((kp-1)/nm) #término anual del salto
+            nsy[z] <- nsy[z] + 1 #no. de saltos por año
+          }
+          dat <- cbind(dat,rep(NA,nd)) #nueva columna de datos
+          #pasar los datos anteriores al corte a la nueva serie:
+          dat[1:(kp-1),ne+nn] <- dat[1:(kp-1),i]
+          dat[1:(kp-1),i] <- NA #borrar los datos pasados a la nueva serie
+          #copiar las coordenadas y poner sufijo a indicativo y nombre:
+          #(Usamos la lista original de estaciones, por si se borra alguna)
+          z <- data.frame(est.i[iest[i],1:3],paste(est.i[iest[i],4],"-",1+nsp[iest[i]],sep=""),paste(est.i[iest[i],5],"-",1+nsp[iest[i]],sep=""))
+          names(z) <- names(est.i)
+          est.c <- rbind(est.c,z)
+          switch(std,
+            { dat.m[i] <- mean(dat[,i],na.rm=TRUE) + refmed - mean(datmed[!is.na(dat[,i])])
+              dat.m <- c(dat.m, mean(dat[,ne+nn],na.rm=TRUE)+refmed-mean(datmed[!is.na(dat[,ne+nn])])) },
+            { dat.m[i] <- mean(dat[,i],na.rm=TRUE) * refmed / mean(datmed[!is.na(dat[,i])])
+              dat.m <- c(dat.m, mean(dat[,ne+nn],na.rm=TRUE)*refmed/mean(datmed[!is.na(dat[,ne+nn])])) },
+            { dat.m[i] <- mean(dat[,i],na.rm=TRUE) + refmed - mean(datmed[!is.na(dat[,i])])
+              dat.m <- c(dat.m, mean(dat[,ne+nn],na.rm=TRUE)+refmed-mean(datmed[!is.na(dat[,ne+nn])]))
+              dat.s[i] <- sd(dat[,i],na.rm=TRUE) + refstd - sd(datmed[!is.na(dat[,i])])
+              dat.s <- c(dat.s, sd(dat[,ne+nn],na.rm=TRUE)+refstd-sd(datmed[!is.na(dat[,ne+nn])])) },
+            { dat.m[i] <- mean(dat[,i],na.rm=TRUE) + refmed - mean(datmed[!is.na(dat[,i])])
+              dat.m <- c(dat.m, mean(dat[,ne+nn],na.rm=TRUE)+refmed-mean(datmed[!is.na(dat[,ne+nn])])) }
+          )
+        }
       }
+      cat("\n\nUpdate number of series: ",ne,"+",nn,"= ")
+      ne <- ne+nn  #actualizar el no. de estaciones
+      cat(ne,"\n\n")
+      refhom <- substr(est.c[,4],1,1)=='*' #actualizar referencias homogéneas
     }
-    cat("\n\nUpdate number of series: ",ne,"+",nn,"= ")
-    ne <- ne+nn  #actualizar el no. de estaciones
-    cat(ne,"\n\n")
     snht1=0 #pasar directamente a relleno de lagunas
   }
   #- for (ks in 1:3) #(snht en ventanas, snht total, y relleno de lagunas)
   for (ks in 1:3) { #para cada etapa:
-    #- if(snht1==0 & ks<3) next #no realizar cortes, sólo rellenar lagunas
-    if(snht1==0 & ks<3) next
+    #- si snht1==0 en pasada 1 o  snht2==0 en pasada 2, saltar la pasada
+    if((snht1==0 & ks==1) | (snht2==0 & ks==2)) next
     if(ks==2) snht1 <- snht2 #umbral para SNHT en toda la serie
     cat("\n\n========== STAGE",ks)
     switch(ks,
@@ -969,11 +1345,13 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
     }
     #- if(gp>0), pintar rótulo separador de niveles
     if(gp>0) {
+      par(old.par)
       plot(-1:1,-1:1,type="n",xaxt="n",yaxt="n",bty="n",xlab="",ylab="")
       text(0,0.4,paste("Stage",ks),cex=4)
       if(ks==1) text(0,-0.3,paste("Binary splits on",swa,"term\nstepped windows\nwith SNHT >",snht1,"\nand wd =",wd[ks],"km"),cex=3)
       else if(ks==2) text(0,-0.3,paste("Binary splits on\nwhole series\nwith SNHT >",snht1,"\nand wd =",wd[ks],"km"),cex=3)
       else text(0,-0.3,paste("Anomalies after\nmissing data\nrecalculation\nwith wd =",wd[ks],"km\n( swa =",swa,")"),cex=2.5)
+      par(cex=cex)
     }
     #valores dependientes de la pasada:
     if(ks==3) aref <- TRUE else aref <- FALSE
@@ -986,7 +1364,7 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
       dat.z <- matrix(NA,nd,ne) #datos observados (estandarizados)
       dat.e <- matrix(NA,nd,ne) #datos estimados (estandarizados)
       dat.c <- matrix(NA,nd,ne) #datos calculados (estimados, sin estand.)
-      oneref <- matrix(FALSE,nd,ne) #sólo 1 referencia?
+      oneref <- matrix(FALSE,nd,ne) #solo 1 referencia?
       anom <- matrix(NA,nd,ne) #anomalías
       sanom <- matrix(NA,nd,ne) #anomalías estandarizadas
       mindist <- matrix(NA,nd,ne) #distancias mínimas
@@ -1008,8 +1386,8 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
       nmin=min(numdat,na.rm=TRUE)
       if(nmin<mndat) {
         cat("There are stations with less than ",mndat," data:\n",sep="")
-        cat("Stations...:",formatC(which(numdat<mndat),0,4),"\n")
-        cat("Nr. of data:",formatC(numdat[numdat<mndat],0,4),"\n")
+        cat("Stations :",formatC(which(numdat<mndat),0,4),"\n")
+        cat("N of data:",formatC(numdat[numdat<mndat],0,4),"\n")
         cat("These stations will be deleted in order to proceed:\n")
         z <- which(numdat<mndat); 
         for(idel in z) {
@@ -1021,7 +1399,6 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
         iest[z] <- 0 #anular los índices de estación original
       }
       dat.na <- is.na(dat.d) #índice de datos ausentes
-      #- primera estima de medias y desv. típicas, o usar las anteriores
       #usar las medias y desviaciones típicas anteriores si existen:
       if(exists('dat.m0')) {
         dat.m <- dat.m0
@@ -1030,11 +1407,8 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
       #- estandarizar los datos dat.d (obtener dat.z)
       switch(std,
         dat.z <- scale(dat.d,center=dat.m,scale=FALSE),     #std=1
-        if(min(dat.m)<1) { warnlt1=TRUE
-          z <- which(dat.m > 1)
-          dat.z <- dat.d
-          dat.z[,z] <- scale(dat.d[,z],center=FALSE,scale=dat.m[z]) }
-        else dat.z <- scale(dat.d,center=FALSE,scale=dat.m), #std=2
+        { dat.z <- dat.d; z <- which(dat.m > 1)
+          dat.z[,z] <- scale(dat.d[,z],center=FALSE,scale=dat.m[z]) },
         dat.z <- scale(dat.d,center=dat.m,scale=dat.s),     #std=3
         dat.z <- dat.d
       )
@@ -1046,14 +1420,15 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
       if(length(dat)>10000000) cat('This process may take a very long time (many days)\n')
       else if(length(dat)>1000000) cat('This process may take a long time (many hours)\n')
       if(ks==3) cat("\nThe following lines will have one of these formats:\n")
-      cat("Station(rank) Date: Observed -> Suggested (Standard dev.)\n")
-      if(ks==3) cat("Iteration Max.mean.difference (Station_code)")
+      cat("  Station(rank) Date: Observed -> Suggested (Anomaly, in std. devs.)\n")
+      if(ks==3) cat("  Iteration Max.data.difference (Station_code)\n")
       repeat {
         ite <- ite+1
         #- ite+=1 y obtener las series estimadas (dat.e|c) con las vecinas
         #  actualizando used, nrefs y mindist:
         for(i in 1:ne) { #para cada estación
           if(!iest[i]) next #estación borrada
+          if(refhom[i]) next #saltar estaciones confiables
           ik <- iest[i] #índice de referencia estación inicial
           for(j in 1:nd) { #para cada dato
             se <- 0
@@ -1080,7 +1455,7 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
               nrefs[j,i] <- NA
             } else {
               nrefs[j,i] <- nr
-              #si sólo hay una referencia, marcar para no corregir la serie:
+              #si solo hay una referencia, marcar para no corregir la serie:
               if(nr==1 & !is.na(oneref[j,i])) oneref[j,i] <- TRUE
               #no permitir datos negativos si std=2 (precipitación, etc):
               if(std==2 & se<0) se <- 0
@@ -1097,10 +1472,8 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
         #valores calculados por desestandarización de dat.e:
         switch(std,
           dat.c <- scale(dat.e,center=-dat.m,scale=FALSE),
-          if(warnlt1) { z <- which(dat.m > 1)
-            dat.c <- dat.e
-            dat.c[,z] <- scale(dat.e[,z],center=FALSE,scale=1/dat.m[z]) }
-          else dat.c <- scale(dat.e,center=FALSE,scale=1/dat.m), #std=2
+          { dat.c <- dat.e; z <- which(dat.m > 1)
+            dat.c[,z] <- scale(dat.e[,z],center=FALSE,scale=1/dat.m[z]) },
           { dat.c <- scale(dat.e,center=FALSE,scale=1/dat.s)
             dat.c <- scale(dat.c,center=-dat.m,scale=FALSE) },
           dat.c <- dat.e
@@ -1111,11 +1484,11 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
         #estandarizar las anomalías:
         anomm <- apply(anom,2,mean,na.rm=TRUE) #anomalías medias
         anoms <- apply(anom,2,sd,na.rm=TRUE) #desv. típicas de las anomalías
-#       for(j in 1:ne) sanom[,j] <- (anom[,j]-anomm[j])/anoms[j] #an. estand.
         sanom <- scale(anom,center=anomm,scale=anoms)
         if(!expl & dz.maxk>.1) { #eliminar outliers
-          elim <- sanom<dz.mink | sanom>dz.maxk #datos a eliminar
+          elim <- sanom < dz.mink | sanom > dz.maxk #datos a eliminar
           elim[is.na(elim)] <- FALSE #eliminar los molestos NA
+          elim[,refhom] <- FALSE #no modificar las series confiables
           nelim <- sum(elim) #no. de datos a eliminar
           if(nelim>0) { #eliminar los datos originales anómalos
             #listado de los datos a eliminar:
@@ -1128,10 +1501,10 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
                 else if(trf>1) { do <- do^trf; dc <- dc^trf }
                 cat(sprintf('%s(%d) %s',est.c[i,4],i,format(x[j])))
                 cat(": ",do," -> ",round(dc,ndec)," (",round(sanom[j,i],2),")",sep="")
-                if(oneref[j,i]) { #no eliminar si sólo tenían una referencia!
+                #no eliminar si solo tenían una referencia!:
+                if(oneref[j,i] & !force & nrefk>1) {
                   cat(" Only 1 reference! (Unchanged)")
                   elim[j,i] <- FALSE
-                  oneref[j,i] <- NA #evitar repetir este mismo mensaje
                 }
                 else { #escribir en Fout
                   write(c(est.c[iest[i],4],format(x[j]),round(do,ndec),
@@ -1149,7 +1522,10 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
         dat.d[dat.na] <- dat.c[dat.na] 
         if(ite>1) {
           maxddif <- max(abs(dat.d-dat.d0),na.rm=TRUE) #máx. dat. dif.
-          kmaxdif <- ceiling(which.max(abs(dat.d-dat.d0))/nd) #estación
+          maxdif3 <- 3*maxddif #control de convergencia
+          kmaxdif <- which.max(abs(dat.d-dat.d0)) #posición máx. dat. dif.
+          kmaxest <- ceiling(kmaxdif/nd) #estación máx. dat. dif.
+          maxsdif <- (dat.d-dat.d0)[kmaxdif %% nd,kmaxest]
         }
         dat.d0 <- dat.d #copia de los datos
         #- actualizar dat.m|s|z
@@ -1157,12 +1533,8 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
         if(std==3) dat.s <- apply(dat.d,2,sd,na.rm=TRUE)
         switch(std,
           dat.z <- scale(dat.d,center=dat.m,scale=FALSE), #std=1
-          if(min(dat.m)<1) {
-            warnlt1=TRUE
-            z <- which(dat.m > 1)
-            dat.z <- dat.d
-            dat.z[,z] <- scale(dat.d[,z],center=FALSE,scale=dat.m[z])
-          } else dat.z <- scale(dat.d,center=FALSE,scale=dat.m), #std=2
+          { dat.z <- dat.d; z <- which(dat.m > 1) #std=2
+            dat.z[,z] <- scale(dat.d[,z],center=FALSE,scale=dat.m[z]) },
           dat.z <- scale(dat.d,center=dat.m,scale=dat.s), #std=3
           dat.z <- dat.d
         )
@@ -1171,8 +1543,9 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
         if(!aref) break
         #- if(ite>1), si los datos ya no varían, break
         if(ite>1) {
-          cat(ite,' ',round(maxddif,ndec+2)," (",est.c[kmaxdif,4],")\n",sep="")
-          if(maxddif<=mxdif | ite==maxite) {
+          if(maxddif>maxdif3) stop("Averages do not converge iteratively! (There must be something weird in the data). Cannot continue!")
+          cat(ite,' ',round(maxsdif,ndec+2)," (",est.c[kmaxest,4],")\n",sep="")
+          if(maxddif<=maxdif | ite==maxite) {
             if(ite==maxite) cat("\nAverage computation skipped after",ite,"iterations\n")
             else cat("\n")
             break
@@ -1218,7 +1591,7 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
               nrefs[j,i] <- NA
             } else {
               nrefs[j,i] <- nr
-              #si sólo hay una referencia, marcar para no corregir la serie:
+              #si solo hay una referencia, marcar para no corregir la serie:
               if(nr==1 & !is.na(oneref[j,i])) oneref[j,i] <- TRUE
               #no permitir datos negativos si std=2 (precipitación, etc):
               if(std==2 & se<0) se <- 0
@@ -1235,11 +1608,8 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
         #valores calculados por desestandarización de dat.e:
         switch(std,
           dat.c <- scale(dat.e,center=-dat.m,scale=FALSE),
-          if(warnlt1) { 
-            z <- which(dat.m > 1)
-            dat.c <- dat.e
-            dat.c[,z] <- scale(dat.e[,z],center=FALSE,scale=1/dat.m[z])
-          } else dat.c <- scale(dat.e,center=FALSE,scale=1/dat.m), #std=2
+          { dat.c <- dat.e; z <- which(dat.m > 1) #std=2
+            dat.c[,z] <- scale(dat.e[,z],center=FALSE,scale=1/dat.m[z]) },
           { dat.c <- scale(dat.e,center=FALSE,scale=1/dat.s)
             dat.c <- scale(dat.c,center=-dat.m,scale=FALSE) },
           dat.c <- dat.e
@@ -1253,12 +1623,8 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
         if(std==3) dat.s <- apply(dat.d,2,sd,na.rm=TRUE) #desv. típicas
         switch(std, #datos estandarizados
           dat.z <- scale(dat.d,center=dat.m,scale=FALSE), #std=1
-          if(min(dat.m)<1) { 
-            warnlt1=TRUE
-            z <- which(dat.m > 1)
-            dat.z <- dat.d
-            dat.z[,z] <- scale(dat.d[,z],center=FALSE,scale=dat.m[z])
-          } else dat.z <- scale(dat.d,center=FALSE,scale=dat.m), #std=2
+          { dat.z <- dat.d; z <- which(dat.m > 1) #std=2
+            dat.z[,z] <- scale(dat.d[,z],center=FALSE,scale=dat.m[z]) },
           dat.z <- scale(dat.d,center=dat.m,scale=dat.s), #std=3
           dat.z <- dat.d
         )
@@ -1279,9 +1645,9 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
       kpx <- rep(NA,ne) #posiciones de los máximos tV (por estación)
       splt <- rep(0,ne)  #tV con que se cortaron las estaciones
       modif <- FALSE #inicialización modificación series
-      cat("\nPerforming shift analysis on the",ne,"stations...\n")
+      cat("\nPerforming shift analysis on the",ne,"series...\n")
       for(i in 1:ne) { #análisis de saltos en la media para cada estación
-        if(refhom[i]) next
+        if(refhom[i]) next #no analizar las series confiables
         y <- sanom[,i] #anomalías estandarizadas de la estación
         if(ks==1) { #análisis de saltos en ventanas móviles
           st <- snhtw(y,swa) #prueba SNHT en ventanas solapadas
@@ -1290,7 +1656,7 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
         }
         else { #análisis de saltos en toda la serie
           st <- snht(y)
-          if(sum(!is.na(st))>0) {
+          if(sum(!is.na(st))>0) { 
             tVx[i] <- max(st,na.rm=TRUE)
             kpx[i] <- which.max(st)
           }
@@ -1298,14 +1664,15 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
       }
       #- cortar las series cuyo snht máximo supere el umbral, de mayor a menor
       #  siempre que no se hayan usado series recién cortadas con snht similar
-      tVxx <- max(tVx,na.rm=TRUE) #máximo tVx de todas las estaciones
+      #máximo tVx de todas las estaciones
+      if(sum(!is.na(tVx))==0) tVxx <- 0 else tVxx <- max(tVx,na.rm=TRUE)
       while(tVxx > snht1) {
         i <- which.max(tVx) #estación con el máximo snht
         #si i usó referencias cortadas con un snht demasiado grande, iniciar
         #una nueva iteración:
         if(max(splt[used[i,]])>tVxx*(1+tol*min(nr,sum(used[i,])))) break
         kp <- kpx[i] #posición del tVx en la estación i
-        if(oneref[kp,i] & !force) { #no cortar con una sola referencia
+        if(oneref[kp,i] & !force & nrefk>1) { #no cortar con una sola referencia
           tVx[i] <- -1 #pasar el tVx de esta estación a -1
           tVxx <- max(tVx,na.rm=TRUE) #máximo tVx de las estaciones restantes
           next
@@ -1318,7 +1685,7 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
         if(gp>1) {
           y <- sanom[,i] #vector de anomalías de la estación
           ylab="Standardized anomalies (observed - computed)"
-          tit <- paste(varcli," at ",est.c[i,4],"(",i,"), ",est.c[i,5],sep="")
+          tit <- sprintf('%s   %d (%s)\n%s',varcli,i,est.c[i,4],est.c[i,5])
           plot(x,y,type="h",lwd=lw,ylim=c(-5,5),main=tit,xlab='Time',ylab=ylab,col=hsv(.7,1,.9))
           grid(col=grdcol)
           abline(-3,0,lty=3,col=grdcol); abline(-5,0,lty=3,col=grdcol)
@@ -1333,26 +1700,26 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
           lines(rep(x[kp],2),c(-5,4.8),col="red",lty=2) #marca del corte
           text(x[kp],5,floor(tVxx))
         }
-        if(nm>0) { #contar no. de saltos por año
-          z <- 1 + floor((kp-1)/nm) #término anual del salto
-          nsy[z] <- nsy[z] + 1 #no. de saltos por año
-        }
+        #contar no. de saltos por año
+        z <- as.integer(strftime(x[kp],"%Y"))-anyi+1 #término anual del salto
+        nsy[z] <- nsy[z] + 1 #no. de saltos por año
+        #dividir la serie por el punto de corte:
         if(sum(!is.na(dat[1:(kp-1),i])) < mndat) {
           dat[1:(kp-1),i] <- NA
-          cat(" Fragment with less than",mndat,"data DELETED\n")
+          cat(" Fragment with less than",mndat,"data DELETED")
         }
         else if(sum(!is.na(dat[kp:nd,i])) < mndat) {
           dat[kp:nd,i] <- NA
-          cat(" Fragment with less than",mndat,"data DELETED\n")
+          cat(" Fragment with less than",mndat,"data DELETED")
         }
         else {
           nn <- nn+1 #incrementamos el no. de nuevas series
           iest <- c(iest,iest[i]) #añadir índice a la serie original
           nsp[iest[i]] <- nsp[iest[i]]+1 #y también su no. de saltos
           dat <- cbind(dat,rep(NA,nd)) #nueva columna de datos
-          #pasar los datos a la nueva serie:
-          dat[kp:nd,ne+nn] <- dat[kp:nd,i]
-          dat[kp:nd,i] <- NA #borrar los datos pasados a la nueva serie
+          #pasar los datos anteriores al corte a la nueva serie:
+          dat[1:(kp-1),ne+nn] <- dat[1:(kp-1),i]
+          dat[1:(kp-1),i] <- NA #borrar los datos pasados a la nueva serie
           #copiar las coordenadas y poner sufijo a indicativo y nombre:
           #(Usamos la lista original de estaciones, por si se borra alguna)
           z <- data.frame(est.i[iest[i],1:3],paste(est.i[iest[i],4],"-",1+nsp[iest[i]],sep=""),paste(est.i[iest[i],5],"-",1+nsp[iest[i]],sep=""))
@@ -1381,32 +1748,28 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
         cat("\n\nUpdate number of series: ",ne,"+",nn,"= ")
         ne <- ne+nn  #actualizar el no. de estaciones
         cat(ne,"\n\n")
-        refhom <- c(refhom,rep(FALSE,nn)) #actualizar referencias homogéneas
+        refhom <- c(refhom,rep(FALSE,nn)) #actualizar vector de refhom
       }
-      #- sin nuevos cortes? histogramas de snht y break
+      #- sin nuevos cortes? histogramas de snht y breaks
       if(!nn & !modif) {
         if(gp>1) {
           #histograma de máximos tV, globales (sin 0's, que no son reales):
-          z <- tVx[!is.na(tVx) & tVx!=0]
+          z <- tVx[!is.na(tVx) & tVx>0]
           main <- paste("Histogram of maximum SNHT (Stage ",ks,")",sep='')
-##        if(sum(!is.na(z))) hist(z,breaks=min(0,floor(min(z))):max(20,ceiling(max(z))),xlab='SNHT',col="purple",main=main) 
           if(sum(!is.na(z))) hist(z,breaks=20,xlab='SNHT',col="purple",main=main)
-          #si hay posibles cortes con 1 sóla referencia, colorear de rojo:
-          if(min(z,na.rm=TRUE)<0) hist(z[z<0],breaks=1,col=2,add=TRUE)
           if(ks==2 | snht2<1) {
             #histograma de no. de cortes por estación:
             hist(nsp,breaks=0:max(9,max(nsp)+1)-.5,col="orange2",xlab="Number of splits",ylab="Number of stations",main="Number of splits per station")
-            if(nm>0) { #frecuencias de fragmentación por años:
-              w <- min(5,ceiling(400/na)) #anchura de las barras
-              plot(anyi:anyf,nsy,type="h",lwd=w,col=2,ylim=c(0,max(10,max(nsy))),xlab="Years",ylab="Number of splits",main="Number of splits per year")
-              grid(col=grdcol)
-            }
+            #frecuencias de fragmentación por años:
+            w <- min(5,ceiling(400/na)) #anchura de las barras
+            plot(anyi:anyf,nsy,type="h",lwd=w,col=2,ylim=c(0,max(10,max(nsy))),xlab="Years",ylab="Number of splits",main="Number of splits per year")
+            grid(col=grdcol)
           }
         }
         #lista de posibles cortes que solo tienen una referencia:
         z <- which(tVx<0)
         if(length(z)>0) {
-          cat('Stations that could break but had only one reference:\n')
+          cat('Series that could break but had only one reference:\n')
           print(est.c[z,4])
         }
         break #salir del bucle para ir al siguiente nivel
@@ -1432,7 +1795,7 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
       y <- sanom[,i] #anomalías estandarizadas de la estación
       if(gp>1) {
         ylab="Standardized anomalies (observed - computed)"
-        tit <- paste(varcli," at ",est.c[i,4],"(",i,"), ",est.c[i,5],sep="")
+        tit <- sprintf('%s   %d (%s)\n%s',varcli,i,est.c[i,4],est.c[i,5])
         plot(x,y,type="h",lwd=lw,ylim=c(-5,5),main=tit,xlab='Time',ylab=ylab,col=hsv(.7,1,.9))
         grid(col=grdcol)
         abline(-3,0,lty=3,col=grdcol); abline(-5,0,lty=3,col=grdcol)
@@ -1474,30 +1837,35 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
   dah <- round(dah,ndec) #redondear con el no. de decimales deseado
   #- gráficos de las series homogeneizadas y sus correcciones
   if(gp>2) {
+    par(old.par)
     plot(-1:1,-1:1,type="n",xaxt="n",yaxt="n",bty="n",xlab="",ylab="")
     text(0,0.4,"Final graphics",cex=3.5)
     text(0,-0.3,"Adjusted series and\napplied corrections",cex=2.5)
     if(nm>0) xlab <- "Years" else xlab <- "Dates"
-    old.par <- par(no.readonly=TRUE)
+#   par(cex=cex)
     layout(matrix(1:2,2,1,byrow=TRUE))
-    par(las=1,cex=.8)
+    par(las=1,cex=.8*cex)
+    #si hay pocos datos diarios (<700?), no filtrarlos:
+    if(nm==0 & nd<700) { fltr=1; ylabd <- "Data" }
+    else { #filtros para valores anuales:
+      if(nm>0) fltr <- rep(1,nm) else fltr <- rep(1,365)
+      if(gp>3) ylabd <- "Running annual totals"
+      else {
+        ylabd <- "Running annual means"
+        if(nm>0) fltr <- fltr/nm else fltr <- fltr/365
+      }
+    }
     for(i in 1:nei) { #para cada estación original
       wi <- which(iest==i) #estaciones derivadas de la estación i
       lwi <- length(wi)
       if(!lwi) next #(estación totalmente borrada!)
       if(lwi>1) vi <- TRUE else vi <- FALSE
-      #filtros para valores anuales:
-      if(nm>0) fltr <- rep(1,nm) else fltr <- rep(1,365)
-      if(gp>3) ylab <- "Running annual totals"
-      else {
-        ylab <- "Running annual means"
-        if(nm>0) fltr <- fltr/nm else fltr <- fltr/365
-      }
-      tit <- paste(varcli," at ",est.i[i,4],"(",i,"), ",est.i[i,5],sep="")
+      #filtros para valores anuales 
+      tit <- sprintf('%s   %d (%s)\n%s',varcli,i,est.c[i,4],est.c[i,5])
       yo <- as.vector(dat.o[,i]) #datos originales
       y <- dah[,wi] #datos homogeneizados
       par(mar=c(0,4,4,2),xaxt="n")
-      matplot(x,filter(y,fltr),type="l",lty=1,col=2:20,ylab=ylab,main=tit)
+      matplot(x,filter(y,fltr),type="l",lty=1,col=2:20,ylab=ylabd,main=tit)
       lines(x,filter(yo,fltr))
       grid(col=grdcol)
       par(mar=c(5,4,0,2),xaxt="s")
@@ -1522,7 +1890,7 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
       matlines(x,yd,type="l",lty=1,col=2:20)
       grid(col=grdcol)
     }
-    par(old.par)
+    par(old.par); par(cex=cex)
   }
   if(snht1>0) cat("\n======== End of the homogenization process, after ")
   else cat("\n======== End of the missing data filling process, after ")
@@ -1545,18 +1913,19 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
   zz <- summary(rmse)
   print(zz)
   sedec <- max(1,2-ceiling(log10(zz[4]))) #no. de decimales de RMSE
+  rmse <- round(rmse,sedec) #redondear los RMSE
   pod <- floor(100*(nd-apply(dat.na,2,sum))/nd) #porcentaje de datos originales
   cat("\nPOD: Percentage of original data\n")
   print(summary(pod))
   #- imprimir resumen de resultados
   cat("\n")
-  print(data.frame(ACmx=round(sac,2),SNHT=snhx,RMSE=round(rmse,sedec),POD=pod,Code=est.c[,4],Name=est.c[,5]),right=FALSE)
+  print(data.frame(ACmx=round(sac,2),SNHT=snhx,RMSE=rmse,POD=pod,Code=est.c[,4],Name=est.c[,5]),right=FALSE)
   #averiguar qué estaciones derivadas funcionan al final del periodo:
   cur <- apply(!is.na(dat[(nd-mndat+1):nd,]),2,sum) #últimos mndat términos
   cur[cur>0] <- 1
-  #añadir cuatro nuevas columnas a la tabla de estaciones (porcentaje de datos
-  #originales, estación original, si funciona actualmente, y SNHT):
-  est.c <- cbind(est.c,pod,iest,cur,snhx)
+  #añadir cinco nuevas columnas a la tabla de estaciones (porcentaje de datos
+  #originales, estación original, si funciona actualmente, SNHT y RMSE):
+  est.c <- cbind(est.c,pod,iest,cur,snhx,rmse)
   #- if(gp>1), últimos gráficos (hist. de anomalías y snht; calidad/singular.)
   if(gp>1) {
     #histograma de las anomalías (las de los outliers, en rojo):
@@ -1576,18 +1945,16 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
     }
     #histograma de tVx:
     z <- tVx; main <- "Histogram of maximum windowed SNHT"
-##    if(sum(!is.na(z))) hist(z,breaks=min(0,floor(min(z))):max(20,ceiling(max(z))),xlab="tVx",col=verde,main=main)
     if(sum(!is.na(z))) hist(z,breaks=20,xlab="SNHT",col=verde,main=main)
     #histograma de SNHT:
     z <- snhx; main <- "Histogram of maximum global SNHT"
-##    if(sum(!is.na(z))) hist(z,breaks=min(0,floor(min(z))):max(20,ceiling(max(z))),xlab="SNHT",col="purple",main=main)
     if(sum(!is.na(z))) hist(z,breaks=20,xlab="SNHT",col="purple",main=main)
     #gráfico de calidad/singularidad:
     plot(rmse,snhx,type="n",xlim=c(0,max(1,max(rmse,na.rm=TRUE))),ylim=c(0,max(50,max(snhx,na.rm=TRUE))),xlab="RMSE",ylab="SNHT",main="Station's quality/singularity")
     grid(col=grdcol)
     text(rmse,snhx,col=hsv(.7,1,.9))
   }
-  if(gp>0) graphics.off() #cerrar la salida gráfica
+  if(gp>0) { par(old.par); graphics.off() } #cerrar la salida gráfica
   #- grabar los resultados en un fichero rda
   kelim <- rev(which(iest==0)) #estaciones eliminadas (en orden inverso)
   nelim <- length(kelim) #no. de estaciones eliminadas
@@ -1602,13 +1969,13 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
     est.c <- est.c[iest>0,] #lista de estaciones homogeneizadas no eliminadas
   }
   else dat <- dat.o
-  if(nm>0) {
+  if(nm>0 & acomp) {
     dim(dat) <- c(nm,na,nei)
     dim(dah) <- c(nm,na,ne)
   }
-  names(est.c) <- c('X','Y','Z','Code','Name','pod','ios','ope','snht')
+  names(est.c) <- c('X','Y','Z','Code','Name','pod','ios','ope','snht','rmse')
   rownames(est.c) <- 1:ne
-  save(dat,dah,est.c,nd,ne,nei,nm,ndec,std,ini, file=sprintf('%s.rda',fbas))
+  save(dat,dah,est.c,nd,ne,nei,nm,x,ndec,std,ini, file=sprintf('%s.rda',fbas))
   #ordenar archivos de outliers y breaks:
   if(!metad) { 
     close(Fbrk)
@@ -1617,7 +1984,7 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
     write.csv(brk,sprintf('%s_brk.csv',fbas),row.names=FALSE)
   }
   close(Fout)
-  out <- read.csv(sprintf('%s_out.csv',fbas),colClasses=c("character","character","numeric","numeric","numeric"))
+  out <- read.csv(sprintf('%s_out.csv',fbas),colClasses=c("character","character","numeric","numeric","numeric"),check.names=FALSE)
   out <- out[order(out[,1],out[,2]),]
   write.csv(out,sprintf('%s_out.csv',fbas),row.names=FALSE)
   cat("\n----------- Generated output files: -------------------------\n\n")
@@ -1631,7 +1998,6 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
   cat(sprintf('   dahstat(\'%s\',%d,%d,stat=\'tnd\') #get OLS trends and their p-values',varcli,anyi,anyf),'\n')
   cat(sprintf('   dahgrid(\'%s\',%d,%d,grid=YOURGRID) #get homogenized grids',varcli,anyi,anyf),'\n')
   cat('   ... (See other options in the package documentation)\n\n')
-  if(warnlt1) cat(' \n=====>> Warning!!! There were series with means lower than 1.\nThis may jeopardize the homogenization results when std=2 has been set.\nPlease, revise these results and, if unsatisfactory, try to run homogen()\nagain after having multiplied all your input data by a suitable factor\nin order to prevent any mean from being lower than 1.\n\n')
   sink() #cerrar bitácora
 }
 
@@ -1639,11 +2005,13 @@ expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
 homogsplit <- function(varcli, anyi, anyf, xc=NULL, yc=NULL, xo=.5, yo=.38,
   maponly=FALSE, suf=NA, nm=NA, nref=c(10,10,4), swa=NA, std=3, ndec=1,
   dz.max=5, dz.min=-dz.max, wd=c(0,0,100), snht1=25, snht2=snht1, tol=.02,
-  mxdif=NA, force=FALSE, wz=.001, trf=0, mndat=NA, gp=3, ini=NA,
-  na.strings="NA", maxite=50, vmin=NA, vmax=NA, nclust=100,
-  clustmethod='ward.D2', grdcol=grey(.5), mapcol=grey(.65), hires=TRUE,
-  expl=FALSE, metad=FALSE, sufbrk='m', verb=TRUE) {
+  maxdif=NA, mxdif=maxdif, force=FALSE, wz=.001, trf=0, mndat=NA, gp=3, ini=NA,
+  na.strings="NA", maxite=999, vmin=NA, vmax=NA, nclust=100,
+  grdcol=grey(.4), mapcol=grey(.4), hires=TRUE, expl=FALSE, metad=FALSE,
+  sufbrk='m', tinc=NA, tz='UTC', cex=1.2, verb=TRUE, x=NA) {
   
+  #adjust sufbrk if using metad=TRUE within this function:
+  if(metad) sufbrk <- sprintf('%s-%s',varcli,sufbrk)
   #output files:
   f.bas <- sprintf('%s_%d-%d',varcli,anyi,anyf) #base name
   f.txt <- sprintf('%s.txt',f.bas) #console output
@@ -1656,15 +2024,20 @@ homogsplit <- function(varcli, anyi, anyf, xc=NULL, yc=NULL, xo=.5, yo=.38,
   dat <- scan(sprintf('%s.dat',f.bas))
   nd <- length(dat)/nei
   dim(dat) <- c(nd,nei)
-  #check whether coordinates are in degrees:
-  if(max(abs(est.c[,1]))>180 | max(abs(est.c[,2]))>90) deg <- FALSE
-  else {
-    deg <- TRUE
-    if(gp>0) {
-      if(requireNamespace("maps",quietly=TRUE)) mapok <- TRUE else mapok <- FALSE
-      if(hires & requireNamespace("mapdata",quietly=TRUE)) maphr <- TRUE else maphr <- FALSE
+  if(is.na(nm)) { #calcular no. de datos por año y estación:
+    z <- nd/na
+    if(z>=1) nm <- ceiling(z)
+    if(nm > 12) nm <- 0 #datos diarios
+    else if(!nm%in%c(1,2,3,4,6,12)) {
+      cat(sprintf('Computed nr. of data per year/station: %d.\n',nm))
+      stop('Please set manually the right value of nm (one of 1,2,3,4,6,12)')
     }
   }
+  #comprobar si los años están completos:
+  if(nm>0 & nd%%nm==0) acomp <- TRUE else acomp <- FALSE
+  #check whether coordinates are in degrees:
+  if(max(abs(est.c[,1]))>180 | max(abs(est.c[,2]))>90) deg <- FALSE
+  else deg <- TRUE
   if(is.null(xc) | is.null(yc)) { #plot sites to help choosing split borders:
     plot(est.c[,1:2],xlab='X',ylab='Y'); grid(col=grdcol)
     cat('mean(x)=',mean(est.c[,1]),';   mean(y)=',mean(est.c[,2]),'\n')
@@ -1673,19 +2046,19 @@ homogsplit <- function(varcli, anyi, anyf, xc=NULL, yc=NULL, xo=.5, yo=.38,
   }
   else { #apply homogen() on the selected areas:
     est0 <- est.c; dat0 <- dat #keep whole original data for selections
-    pne <- 0 #previous number of stations
+    pne <- 0 #previous number of stations (series)
     nxc <- length(xc) #nr. of x cut borders
     nyc <- length(yc) #nr. of y cut borders
     #save a map of available stations and split areas:
     f.map <- sprintf('%s-map.pdf',f.bas)
     main=paste('Split areas of the',nei,'available',varcli,'stations')
-    pdf(f.map)
+    pdf(f.map,bg='white')
     if(deg) {
       asp=1/(cos(mean(range(est.c[,2]))*pi/180)) #aspect ratio
       plot(est.c[,1:2],pch='+',col=hsv(.6,.7,1),asp=asp,xlab="Longitude (deg)",ylab="Latitude (deg)",main=main)
-      if(maphr) try(maps::map('worldHires',add=TRUE))
-      else if(mapok) try(maps::map('world',add=TRUE))
-    } else plot(est.c[,1:2],pch='+',asp=1,xlab="X (km)",ylab="Y (km)",main=main)
+#     if(maphr) try(maps::map('worldHires',add=TRUE))
+#     else if(mapok) try(maps::map('world',add=TRUE))
+    } else plot(est.c[,1:2],pch='+',asp=1,xlab="X",ylab="Y",main=main)
     grid(col=gray(.4))
     abline(h=yc,col=2); abline(v=xc,col=2)
     abline(h=yc+yo,col=3); abline(h=yc-yo,col=3)
@@ -1698,7 +2071,7 @@ homogsplit <- function(varcli, anyi, anyf, xc=NULL, yc=NULL, xo=.5, yo=.38,
       cat('No further action required\n')
       return()
     }
-    #-------------------- homogenize overlapping areas: -------------
+    # -------------------- homogenize overlapping areas: -------------
     #open console output file:
     sink(f.txt,split=TRUE)
     cat("\nHOMOGSPLIT() APPLICATION OUTPUT  (From R's contributed package 'climatol' ",climatol.version,")\n",sep='')
@@ -1753,7 +2126,7 @@ homogsplit <- function(varcli, anyi, anyf, xc=NULL, yc=NULL, xo=.5, yo=.38,
           est.ov <- est.ov | est.ov0 #add previous few stations
           rm(est.ov0,est.tg0)
         }
-        if(sum(est.ov)<10) { #too few stations in current selection?
+        if(sum(est.ov)<5) { #too few stations in current selection?
           est.ov0 <- est.ov #keep selection to be added to the next
           est.tg0 <- est.tg #keep selection to be added to the next
           cat('Only',sum(est.ov),'stations in this area:\n')
@@ -1772,16 +2145,18 @@ homogsplit <- function(varcli, anyi, anyf, xc=NULL, yc=NULL, xo=.5, yo=.38,
         #homogenize current overlapping area:
         homogen(var, anyi, anyf, suf=suf, nm=nm, nref=nref, std=std, swa=swa,
         ndec=ndec, dz.max=dz.max, dz.min=dz.min, wd=wd, snht1=snht1,
-        snht2=snht2, tol=tol, mxdif=mxdif, force=force, wz=wz, trf=trf,
-        mndat=mndat, gp=gp, ini=ini, na.strings=na.strings, maxite=maxite,
-        vmin=vmin, vmax=vmax, nclust=nclust, clustmethod=clustmethod,
-        grdcol=grdcol, mapcol=mapcol, hires=hires, expl=expl, metad=metad,
-        sufbrk=sufbrk, verb=verb)
+        snht2=snht2, tol=tol, maxdif=maxdif, maxite=maxite, force=force, wz=wz,
+        trf=trf, mndat=mndat, gp=gp, ini=ini, na.strings=na.strings, vmin=vmin,
+        vmax=vmax, nclust=nclust, grdcol=grdcol, mapcol=mapcol, hires=hires,
+        expl=expl, metad=metad, sufbrk=sufbrk, tinc=tinc, tz=tz, cex=cex,
+        verb=verb)
       }
     }
     cat("\n======== End of homogenization of overlapping areas, after ")
     cat(format(round(Sys.time()-time1,2)),'\n')
     #joint areal homogenization files:
+    f.out <- sprintf('%s_out.csv',f.bas) # out file name
+    f.brk <- sprintf('%s_brk.csv',f.bas) # brk file name
     for(i in 1:noa) {
       f.baux <- sprintf('%s-%d_%d-%d',varcli,i,anyi,anyf)
       load(sprintf('%s.rda',f.baux))
@@ -1791,35 +2166,68 @@ homogsplit <- function(varcli, anyi, anyf, xc=NULL, yc=NULL, xo=.5, yo=.38,
       qest <- match(qcod,est.c[,4]) #indexes of original stations
       sel <- est.c[,7]%in%qest #selected stations and their derivatives
       dah <- dah[,sel]; est.c <- est.c[sel,]; ne <- sum(sel)
+      nei <- length(qcod)
       if(i==1) {
-        zdah <- dah; zest.c <- est.c; zne <- ne
-        zout <- read.csv(sprintf('%s_out.csv',f.baux),colClasses=c("character","character","numeric","numeric","numeric"))
-        zbrk <- read.csv(sprintf('%s_brk.csv',f.baux),colClasses=c("character","character","numeric"))
+        zne <- ne; znei <- nei
+        write(dah,sprintf('%s_aux.dah',f.bas))
+        write.table(est.c,sprintf('%s_aux.est',f.bas),row.names=FALSE,col.names=FALSE)
+        zz <- read.csv(sprintf('%s_out.csv',f.baux),colClasses=c("character","character","numeric","numeric","numeric"))
+        write.csv(subset(zz,zz[,1]%in%qcod),f.out,row.names=FALSE)
+        if(!metad) {
+          zz <- read.csv(sprintf('%s_brk.csv',f.baux),colClasses=c("character","character","numeric"))
+          write.csv(subset(zz,zz[,1]%in%qcod),f.brk,row.names=FALSE)
+        }
       } else {
-        zdah <- cbind(zdah,dah)
-        zest.c <- rbind(zest.c,est.c)
-        zne <- zne+ne
-        zout <- rbind(zout,read.csv(sprintf('%s_out.csv',f.baux),colClasses=c("character","character","numeric","numeric","numeric")))
-        zbrk <- rbind(zbrk,read.csv(sprintf('%s_brk.csv',f.baux),colClasses=c("character","character","numeric")))
+        zne <- zne+ne; znei <- znei+nei
+        write(dah,sprintf('%s_aux.dah',f.bas),append=TRUE)
+        write.table(est.c,sprintf('%s_aux.est',f.bas),row.names=FALSE,col.names=FALSE,append=TRUE)
+        zz <- read.csv(sprintf('%s_out.csv',f.baux),colClasses=c("character","character","numeric","numeric","numeric"))
+        write.table(subset(zz,zz[,1]%in%qcod),f.out,sep=',',row.names=FALSE,col.names=FALSE,append=TRUE)
+        if(!metad) {
+          zz <- read.csv(sprintf('%s_brk.csv',f.baux),colClasses=c("character","character","numeric"))
+          write.table(subset(zz,zz[,1]%in%qcod),f.brk,sep=',',row.names=FALSE,col.names=FALSE,append=TRUE)
+        }
       }
     }
-    dat <- dat0; dah <- zdah; est.c <- zest.c; ne <- zne 
-    if(nm>0) {
+    dat <- dat0; ne <- zne; nei <- znei
+    fich <- sprintf('%s_aux.dah',f.bas); dah <- scan(fich)
+    dim(dah) <- c(nd,ne); file.remove(fich)
+    fich <- sprintf('%s_aux.est',f.bas)
+    est.c <- read.table(fich,colClasses=c('numeric','numeric','numeric','character','character','numeric','numeric','numeric','numeric'))
+    file.remove(fich)
+    #sort stations and their corresponding data:
+    cod <- est.c[,4] #station codes
+    zd <- regexpr('-',cod)>0 #daughter series (with a suffix)
+    scod <- c(sort(cod[!zd]),sort(cod[zd]))#sorted codes (daughters at the end)
+    ks <- match(scod,cod) #order of sorted codes in the original code list
+    est.c <- est.c[ks,] #sorted station data frame
+    dah <- dah[,ks] #data sorted as stations
+    #sort original data also:
+    z <- read.table(sprintf('%s.est',f.bas),colClasses=c("numeric","numeric","numeric","character","character"))
+    dat <- dat[,match(z[,4],est.c[1:nei,4])] #original data also sorted
+    scodi <- unsufix(scod) #codes without suffix
+    est.c[,7] <- match(scodi,scod[1:nei]) #update references to mother series
+    #set proper dimensions if not daily data, and save data and stations files:
+    if(nm>0 & acomp) {
       dim(dat) <- c(nm,nd/nm,nei)
       dim(dah) <- c(nm,nd/nm,ne)
     }
-    save(dat,dah,est.c,nd,ne,nei,nm,ndec,std, file=f.rda)
+    save(dat,dah,est.c,nd,ne,nei,nm,x,ndec,std,ini, file=f.rda)
+    #sort lists of break-points and outliers:
+    zout <- read.csv(f.out)
     out <- zout[order(zout[,1],zout[,2],zout[,3]),]
-    brk <- zbrk[order(zbrk[,1],zbrk[,2],zbrk[,3]),]
-    out <- out[row.names(unique(out[,1:3])),]
-    brk <- brk[row.names(unique(brk[,1:3])),]
-    write.csv(out,sprintf('%s_out.csv',f.bas),row.names=FALSE)
-    write.csv(brk,sprintf('%s_brk.csv',f.bas),row.names=FALSE)
+    write.csv(out,f.out,row.names=FALSE)
+    if(!metad) {
+      zbrk <- read.csv(f.brk)
+      brk <- zbrk[order(zbrk[,1],zbrk[,2],zbrk[,3]),]
+      write.csv(brk,f.brk,row.names=FALSE)
+    }
+    #display final messages to the user:
     cat("\n----------- Generated output files: -------------------------\n\n")
     cat(sprintf('%s.txt :  This text output\n',f.bas))
-    cat(sprintf('%s_out.csv :  List of corrected outliers\n',f.bas))
-    cat(sprintf('%s_brk.csv :  List of corrected breaks\n',f.bas))
-    if(gp>0) cat(sprintf('%s-*_%d-%d.pdf :  Diagnostic graphics (one file per area)\n',varcli,i,anyi,anyf))
+    cat(sprintf('%s :  List of corrected outliers\n',f.out))
+    if(!metad) cat(sprintf('%s :  List of corrected breaks\n',f.brk))
+    if(gp>0) cat(sprintf('%s-*_%d-%d.pdf :  Diagnostic graphics (one file per area)\n',varcli,anyi,anyf))
     cat(sprintf('%s :  Map of specified areas\n',f.map))
     cat(sprintf('%s.rda :  Homogenization results.',f.bas))
     cat(' Postprocess with (examples):\n')
@@ -1834,21 +2242,44 @@ homogsplit <- function(varcli, anyi, anyf, xc=NULL, yc=NULL, xo=.5, yo=.38,
 #- outrename.- Append a suffix to the output files, to avoid overwrites.
 outrename <- function(varcli, anyi, anyf, suffix, restore=FALSE) {
   #if restore=TRUE, the suffix will be removed! 
-  fbn <- paste(varcli,"_",anyi,"-",anyf,sep="") #original file base name
+  fbn <- sprintf('%s_%d-%d',varcli,anyi,anyf) #original file base name
   #destination file base name:
-  fbn2 <- paste(varcli,"-",suffix,"_",anyi,"-",anyf,sep="")
-  for(ext in c(".txt",".rda",".pdf")) {
+  fbn2 <- sprintf('%s-%s_%d-%d',varcli,suffix,anyi,anyf)
+  for(ext in c(".txt",".pdf")) {
     if(restore) file.rename(paste(fbn2,ext,sep=""),paste(fbn,ext,sep=""))
     else file.rename(paste(fbn,ext,sep=""),paste(fbn2,ext,sep=""))
   }
   if(restore) {
-    file.rename(sprintf('%s_out.csv',fbn2),sprintf('%s_out.csv',fbn))
-    file.rename(sprintf('%s_brk.csv',fbn2),sprintf('%s_brk.csv',fbn))
+    name <- sprintf('%s.rda',fbn2)
+    if(file.exists(name)) file.rename(name,sprintf('%s.rda',fbn))
+    name <- sprintf('%s_out.csv',fbn2)
+    if(file.exists(name)) file.rename(name,sprintf('%s_out.csv',fbn))
+    name <- sprintf('%s_brk.csv',fbn2)
+    if(file.exists(name)) file.rename(name,sprintf('%s_brk.csv',fbn))
   } else {
-    file.rename(sprintf('%s_out.csv',fbn),sprintf('%s_out.csv',fbn2))
-    file.rename(sprintf('%s_brk.csv',fbn),sprintf('%s_brk.csv',fbn2))
+    name <- sprintf('%s.rda',fbn)
+    if(file.exists(name)) file.rename(name,sprintf('%s.rda',fbn2))
+    name <- sprintf('%s_out.csv',fbn)
+    if(file.exists(name)) file.rename(name,sprintf('%s_out.csv',fbn2))
+    name <- sprintf('%s_brk.csv',fbn)
+    if(file.exists(name)) file.rename(name,sprintf('%s_brk.csv',fbn2))
   }
   return(invisible())
+}
+
+#- unsufix.- Remove numeric sufixes from the station codes.
+unsufix <- function(str) {
+  ns <- length(str) #nr. of strings
+  for(i in 1:ns) {
+    z <- strsplit(str[i],'')[[1]]
+    w <- which(z=="-"); nw <- length(w)
+    if(nw==0) next #no sufix in the string
+    k <- w[length(w)] #last dash in the string
+    if(k==nchar(str[i])) next #dash is the last character
+    if(as.numeric(substring(str[i],k+1))<=0) next #sufix is no numeric
+    str[i] <- substr(str[i],1,k-1)
+  }
+  return(str)
 }
 
 #- snht.- Standard Normal Homogeneity Test (Alexandersson)
@@ -1856,19 +2287,22 @@ snht <- function(x,nmt=3) {
 #nmt: no. mínimo de términos de cada muestra
   n <- length(x)
   Tsnht <- rep(NA,n)
+# Ssnht <- rep(NA,n)
   if(n<nmt*2) return(Tsnht) #insuficientes datos
   z <- (x-mean(x,na.rm=TRUE))/sd(x,na.rm=TRUE)
-  yc <- FALSE #ya calculado?
   for(i in (nmt+1):(n-nmt)) { #(despreciar los primeros y últimos nmt términos)
-    if(is.na(x[i]) & yc) next #test ya calculado
+    if(is.na(x[i])) next
     n1 <- sum(!is.na(x[1:(i-1)])) #no. de términos de la muestra 1
     n2 <- sum(!is.na(x[i:n])) #no. de términos de la muestra 2
     if(n1<nmt | n2<nmt) next #al menos una muestra es demasiado pequeña
     z1 <- mean(z[1:(i-1)],na.rm=TRUE)
     z2 <- mean(z[i:n],na.rm=TRUE)
     Tsnht[i] <- n1*z1*z1 + n2*z2*z2
-    if(is.na(x[i])) yc <- TRUE #marca de test ya calculado
-    else if(yc) yc <- FALSE    #quitar la marca
+#   s1 <- sd(z[1:(i-1)],na.rm=TRUE)
+#   s2 <- sd(z[i:n],na.rm=TRUE)
+#   Ssnht[i] <- n1*z1*z1 + n2*z2*z2
+##  if(is.na(x[i])) yc <- TRUE #marca de test ya calculado
+##  else if(yc) yc <- FALSE    #quitar la marca
   }
   return(Tsnht)
 }
