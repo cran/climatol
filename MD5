@@ -1,14 +1,15 @@
-272bce0c14707c50d4713b5bed071954 *DESCRIPTION
+669d64b1cee3bd7ac22d1010307733ac *DESCRIPTION
 0569e46a7226936c7fb30937307869aa *NAMESPACE
-2b1eff8f3fba37bec218d5a9a3c43369 *NEWS
-bec76ef85aff3c65bbff638e66604279 *R/depurdat.R
+215bc40e69d2e8e249837cd3ce871745 *NEWS
+48249d234d6a8cbd4b52e2e33f8c1e3f *R/depurdat.R
 31c1acda58e20805ba714c1e60f3af3f *R/diagwl.R
 639ffc318b57210a55d6a3ce193e6e03 *R/rosavent.R
 6b127d2a27240c160a2185702736e55d *data/Ptest.rda
 ec98fcc6a32b96a942d96428d0a7ab64 *data/Ttest.rda
 fe2268c7133398f48bf42927aac92089 *data/dailies.rda
-356667117c6f7f1be56d528ce4e0a1d3 *data/datalist
+d83136ee2f1290d910301ca3d67998a8 *data/datalist
 495747e6606d50981f9f70c4c5986847 *data/datcli.rda
+6067b0020c5550f61d4556ef4bafed79 *data/pcp_results.rda
 2c81d88b5eb9818d20b0f8a8b4e7f3a2 *data/rclimdex.rda
 3c5a592b65aa5602ea411f6aed28c93f *data/tmax.rda
 ccf15b7cc4336ad50b55a3eaa3f94e21 *data/windfr.rda
@@ -16,7 +17,7 @@ b73b2d453b5f85d2c08f681a623a8cfc *man/Ptest.Rd
 13be0ef11c744d30fe1adb04f7aa7bb4 *man/Ttest.Rd
 ff9cae1f81a9bd38978ba8d0a5936731 *man/climatol-internal.Rd
 09735f04229baa2fdc6e15ab5b88aedf *man/climatol2rclimdex.Rd
-9ddd2ccb6d03546d1e2ddd84d80fae64 *man/dahgrid.Rd
+809554b5cce806dc5562302708d194f4 *man/dahgrid.Rd
 1ee2d064da90f73ec9b2f9e5ad96ee44 *man/dahstat.Rd
 d8462f8791df6658b57f51c8256f4497 *man/dailies.Rd
 5126a32b13b5d5a6823c2de9e7880a5f *man/daily2climatol.Rd
@@ -28,6 +29,7 @@ fa1014dbe3bdf5ced5ff4497bce2ac06 *man/db2dat.Rd
 644fc3ec0a97f8a92a1793d0c6a127e4 *man/homogen.Rd
 be01c9a29e6b55bf1419857e1191916e *man/homogsplit.Rd
 bbebe2396995b0ec4a8d07543557292f *man/outrename.Rd
+877d2225fef981ed0bb42a34a09862eb *man/pcp_results.Rd
 ab2c3a56fb115e9f8e4a6c2355c7fbe6 *man/rclimdex.Rd
 d41d6235a71b9b24605d3648f5d6b99f *man/rclimdex2climatol.Rd
 62b0a4556a0c23953cf0932286404757 *man/rosavent.Rd

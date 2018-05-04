@@ -2,6 +2,7 @@ Ptest: dat est.c
 Ttest: dat est.c
 dailies: stations WY003 WY018 WY020
 datcli
+pcp_2001-2010: dah dat est.c ini nd ndec ne nei nm std x
 rclimdex: rcxsta df1 df2 df3
 tmax: dat est.c
 windfr

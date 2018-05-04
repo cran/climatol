@@ -86,12 +86,9 @@ if(requireNamespace("ncdf4") & requireNamespace("sp")) {
   #Set a temporal working directory and write input files:
   wd <- tempdir()
   wd0 <- setwd(wd)
-  data(Ptest)
-  dim(dat) <- c(720,20)
-  dat[650:720,5] <- dat[650:720,5]*1.8
-  write(dat[601:720,1:5],'pcp_2001-2010.dat')
-  write.table(est.c[1:5,1:5],'pcp_2001-2010.est',row.names=FALSE,col.names=FALSE)
-  homogen('pcp',2001,2010,std=2) #homogenization
+  data(pcp_results) #Load homogenization data
+  #Write homogenization results as expected by the dahgrid function:
+  save(dah,dat,est.c,ini,nd,ndec,ne,nei,nm,std,x,file='pcp_2001-2010.rda')
   #Now run the example:
   grd <- expand.grid(x=seq(2.9,3.3,.1),y=seq(39.5,39.7,.1))
   sp::coordinates(grd) <- ~ x+y

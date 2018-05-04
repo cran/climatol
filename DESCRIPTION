@@ -1,6 +1,6 @@
 Package: climatol
-Version: 3.1
-Date: 2018-04-25
+Version: 3.1.1
+Date: 2018-05-04
 Title: Climate Tools (Series Homogenization and Derived Products)
 Author: Jose A. Guijarro <jguijarrop@aemet.es>
 Maintainer: Jose A. Guijarro <jguijarrop@aemet.es>
@@ -12,6 +12,6 @@ Imports: grDevices, graphics, stats, utils
 Suggests: fields, gstat, ncdf4, raster, RODBC, sp
 URL: http://www.climatol.eu/
 NeedsCompilation: no
-Packaged: 2018-04-26 12:06:18 UTC; jag
+Packaged: 2018-05-04 06:44:11 UTC; jag
 Repository: CRAN
-Date/Publication: 2018-04-26 12:19:51 UTC
+Date/Publication: 2018-05-04 07:05:34 UTC

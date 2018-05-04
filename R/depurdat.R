@@ -4,7 +4,7 @@
 #depurdat.R.- Depuración y homogeneización de series climatológicas.
 #(Most comments in Spanish; sorry!)
 
-climatol.version <- '3.1'
+climatol.version <- '3.1.1'
 
 #- cerrar.- Cerrar los archivos de salida.
 cerrar <- function() {
@@ -248,9 +248,9 @@ climatol2rclimdex <- function(varRR,varTX,varTN,yiRR,yfRR,yiTX=yiRR,
   ne <- length(cod) #nr. of stations
   cat('\nGenerating',ne,'RClimDex files from Climatol homogenizations...:\n\n')
   for(i in 1:ne) { #for every station
-    cat(' ',cod[i])
     if(is.na(dir)) stfile <- sprintf('%s%s.txt',prefix,cod[i])
     else stfile <- sprintf('%s/%s%s.txt',dir,prefix,cod[i])
+    cat(' ',stfile)
     dat <- matrix(NA,ndd,3)
     if(avl[1]) dat[,1] <- dRR[,which(sRR==cod[i])]
     if(avl[2]) dat[,2] <- dTX[,which(sTX==cod[i])]
@@ -933,6 +933,20 @@ metad=FALSE, sufbrk='m', tinc=NA, tz='UTC', cex=1.2, verb=TRUE) {
   est.c <- read.table(fiche,colClasses=c("numeric","numeric","numeric","character","character"))
   names(est.c) <- c('X','Y','Z','Code','Name')
   ne <- nrow(est.c) #no. de estaciones
+  #si los códigos continenen guiones, cambiarlos a guiones bajos:
+  z <- gsub('-','_',est.c[,5])
+  zn <- sum(z != est.c[,5])
+  if(zn>0) {
+    cat('In',zn,'codes containing the "-" character, it has been changed to "_"\n')
+    est.c[,5] <- z
+  }
+  #comprobar si hay códigos duplicados:
+  z <- duplicated(est.c[,5])
+  if(sum(z)>0) {
+    cat('Duplicated codes detected:\n')
+    print(est.c[z,5])
+    stop('The station file *.est must contain unique codes.')
+  }
   #comprobar si las coordenadas están en grados:
   if(max(abs(est.c[,1]))>180 | max(abs(est.c[,2]))>90) {
     deg <- FALSE
@@ -1258,7 +1272,7 @@ metad=FALSE, sufbrk='m', tinc=NA, tz='UTC', cex=1.2, verb=TRUE) {
   if(metad) {
     cat('\nSplitting the series following the metadata file...:\n')
     if(sufbrk=='') fichbrk <- sprintf('%s_%d-%d_brk.csv',varcli,anyi,anyf)
-    else if(nchar(sufbrk>3)) fichbrk <- sprintf('%s_%d-%d_brk.csv',sufbrk,anyi,anyf)
+    else if(nchar(sufbrk)>3) fichbrk <- sprintf('%s_%d-%d_brk.csv',sufbrk,anyi,anyf)
     else fichbrk <- sprintf('%s-%s_%d-%d_brk.csv',varcli,sufbrk,anyi,anyf)
     brk <- read.csv(fichbrk,colClasses=c("character","character","character"))
     if(!is.na(tinc)) brk[,2] <- as.POSIXct(brk[,2],tz=tz)
@@ -1842,7 +1856,6 @@ metad=FALSE, sufbrk='m', tinc=NA, tz='UTC', cex=1.2, verb=TRUE) {
     text(0,0.4,"Final graphics",cex=3.5)
     text(0,-0.3,"Adjusted series and\napplied corrections",cex=2.5)
     if(nm>0) xlab <- "Years" else xlab <- "Dates"
-#   par(cex=cex)
     layout(matrix(1:2,2,1,byrow=TRUE))
     par(las=1,cex=.8*cex)
     #si hay pocos datos diarios (<700?), no filtrarlos:
