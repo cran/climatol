@@ -2,6 +2,8 @@ HISTORY OF CHANGES IN Climatol
 
    Date     Version  Changes
 ----------- -------  -------------------------------------------------
+05-Aug-2019   3.1.2  Fixed inconsistency in the name of a dataset.
+
 04-May-2018   3.1.1  Checking that station codes are not duplicated and do
                      not include the '-' symbol. Important bug correction.
 
