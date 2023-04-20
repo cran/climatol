@@ -1,12 +1,12 @@
 exportPattern("^[[:alpha:]]+")
-import("maps", "mapdata")
-importFrom("grDevices", "graphics.off", "gray", "grey", "hsv", "pdf",
-           "rainbow")
-importFrom("graphics", "abline", "axis", "barplot", "boxplot", "grid",
-           "hist", "image", "layout", "legend", "lines", "matlines",
-           "matplot", "mtext", "par", "plot", "points", "polygon",
-           "rect", "segments", "symbols", "text")
-importFrom("stats", "acf", "aggregate", "approx", "cor", "cutree", "diffinv",
-           "dist", "filter", "hclust", "lm", "na.pass", "sd")
-importFrom("utils", "read.csv", "read.table", "write.csv",
-           "write.table")
+importFrom("graphics", "abline", "axis", "axis.Date", "axis.POSIXct",
+           "barplot", "boxplot", "contour", ".filled.contour", "grid", "hist",
+           "image", "layout", "legend", "lines", "matlines", "matplot",
+           "mtext", "par", "plot", "points", "polygon", "rect", "segments",
+           "symbols", "text", "title")
+importFrom("grDevices", "colorRampPalette", "graphics.off", "gray", "grey",
+           "hsv", "pdf", "rainbow")
+importFrom("stats", "acf", "aggregate", "approx", "coef", "cor", "cutree",
+           "diffinv", "dist", "filter", "hclust", "lm", "median", "na.pass",
+           "quantile", "sd")
+importFrom("utils", "read.csv", "read.table", "write.csv", "write.table")

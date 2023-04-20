@@ -1,57 +1,87 @@
 HISTORY OF CHANGES IN Climatol
 
-   Date     Version  Changes
------------ -------  -------------------------------------------------
-05-Aug-2019   3.1.2  Fixed inconsistency in the name of a dataset.
+2023-04-09, version 4.0:
+- Only the three first parameters are needed in the homogen() function to
+  process any climatic variable. The rest of parameters are guessed or have
+  safe default values.
+- This function begins now with a quality control checking for extreme values,
+  increments into successive data and number of consecutive data of identical
+  value.
+- Precipitation data accumulated during several days can be dissaggregated.
+- Optional data transformation has been removed because the ratio normalization
+  yields better results.
+- A new test (Cucconi) has been added which has the ability to detect both
+  changes in mean and variance. SNHT is still de default test, but the
+  thresholds are now named 'inht'.
+- New utility functions to help in preparing input files with the required
+  format: sef2climatol, xls2csv and csv2climatol
+- The unsatisfactory experimental function homogsplit has been removed.
+  Series in big domains with different climate regimes can be split providing
+  code lists to datsubset().
+- New tools: fix.sunshine to prune any excess in sunshine hours produced in
+  adjusted daily series; and QCthresholds to obtain monthly quantiles of
+  extreme values, increments between consecutive values and sequences of
+  identical values.
+- Added graphic products to display two dimensional scaterplots,
+  Intensity-Duration-Frequency diagrams, diagrams of running trends on time
+  windows of different lengths, Months-Hours isopleths and meteograms.
 
-04-May-2018   3.1.1  Checking that station codes are not duplicated and do
-                     not include the '-' symbol. Important bug correction.
+2018-05-04, version 3.1.1:
+- Checking that station codes are not duplicated and do not include the '-'
+  symbol.
+- Important bug correction.
 
-15-Apr-2018     3.1  New file conversion functions daily2climatol(),
-                     rclimdex2climatol and climatol2rclimdex().
-                     New function datsubset() to subset data into new input
-                     files. Bug correction in homogsplit(). Bigger labels in
-                     graphics.
+2018-04-15, version 3.1:
+- New file conversion functions daily2climatol(), rclimdex2climatol and
+  climatol2rclimdex().
+- New function datsubset() to subset data into new input files.
+- Bug correction in homogsplit().
+- Bigger labels in graphics.
 
-27-Aug-2016     3.0  Many novelties, with new functions (to prepare the input
-                     data from ODBC accessible data bases, to obtain grids
-                     from the homogenized series, etc) and new functionalities
-                     added to others. The package is now able to deal with
-                     daily data, and can honor stations metadata. (Be aware
-                     that some parameters change their names to be more
-                     mnemonic).
+2016-08-27, version 3.0:
+- Many novelties, with new functions (to prepare the input data from ODBC
+  accessible data bases, to obtain grids from the homogenized series, etc) and
+  new functionalities added to others.
+- The package is now able to deal with daily data, and can honor stations
+  metadata. (Be aware that some parameters change their names to be more
+  mnemonic).
 
-01-Nov-2013   2.2.1  Bug fixed: a global color re-assignment resulted in
-                     abnormal halt under most O.S.+latest R combination.
+2013-11-01, version 2.2.1:
+- Bug fixed: a global color re-assignment resulted in abnormal halt under most
+  O.S.+latest R combination.
 
-01-Oct-2013     2.2  Code optimization allows the process to be completed in
-                     around half the time of the previous version. Original
-                     series can be labeled as homogeneous to keep them
-                     unchanged. Some parameters have more meaningful names (the
-                     old are kept for backward compatibility), and a couple
-                     default values have been changed. dahstat() has a new
-                     option to yield the homogenized series in individual text
-                     files. A map is drawn in the station location figure if
-                     the package 'maps' is installed.
+2013-10-01, version 2.2:
+- Code optimization allows the process to be completed in around half the time
+  of the previous version.
+- Original series can be labeled as homogeneous to keep them unchanged.
+- Some parameters have more meaningful names (the old are kept for backward
+  compatibility), and a couple default values have been changed.
+- dahstat() has a new option to yield the homogenized series in individual text
+  files.
+- A map is drawn in the station location figure if the package 'maps' is
+  installed.
 
-05-Jun-2011     2.1  Corrected bugs in distance and trend computations and an
-                     improved convergence in the missing data recomputation
-                     yiel much better homogenization results.
+2011-06-05, version 2.1:
+- Corrected bugs in distance and trend computations and an improved convergence
+  in the missing data recomputation yiel much better homogenization results.
 
-25-Jan-2011     2.0  Too many to explain here. The main novelty is the
-                     homogen() function, for an automated homogenization of
-                     climatological series. Other functions have been changed
-                     or replaced, so you cannot expect compatibility with the
-                     1.x versions.
+2011-01-25, version 2.0:
+- Too many to be explained here. The main novelty is the homogen() function,
+  for an automated homogenization of climatological series.
+- Other functions have been changed or replaced, so you cannot expect
+  compatibility with the 1.x versions.
 
-06-Oct-2006   1.0.3  Change of '°C' by just 'C' to avoid non-ascii characters
-                     warnings in the R checking process of the package, and
-                     update of the PDF poster of the documentation.
+2006-10-06, version 1.0.3:
+- Change of '°C' by just 'C' to avoid non-ascii characters warnings in the R
+  checking process of the package.
+- Update of the PDF poster of the documentation.
 
-26-May-2006   1.0.2  Minor corrections in the documentation and workaround
-                     to avoid 'Error: NAs are not allowed in subscripted
-                     assignments', produced when using option sqrtrans=TRUE
-                     in function depudm() since R version 2.0.0.
+2006-05-26, version 1.0.2:
+- Workaround to avoid 'Error: NAs are not allowed in subscripted assignments',
+  produced when using option sqrtrans=TRUE in function depudm() since R version
+  2.0.0.
+- Minor corrections in the documentation.
 
-01-Nov-2004     1.0  First public release.
+01-Nov-2004, version 1.0:
+- First public release.
 

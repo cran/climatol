@@ -7,29 +7,21 @@
   a NetCDF file.
 }
 \usage{
-dahgrid(varcli, anyi, anyf, anyip=anyi, anyfp=anyf, grid, mh=FALSE, std=NA,
-ini=NA, obsonly=TRUE)
+dahgrid(varcli, anyi, anyf, anyip=anyi, anyfp=anyf, grid, idp=2.0,
+obsonly=TRUE, nmax=Inf)
 }
 \arguments{
-  \item{varcli}{Acronym of the name of the studied climatic variable,
-    as in the data file name.}
+  \item{varcli}{Short name of the studied climatic variable, as in the data
+  file name.}
   \item{anyi}{Initial year of the homogenized data.}
   \item{anyf}{Final year of the homogenized data.}
   \item{anyip}{First year of the desired reference period. (The reference period defaults to the whole period of the data).}
   \item{anyfp}{Last year of the desired reference period.}
   \item{grid}{Grid on which interpolations must be performed.}
-  \item{mh}{If \code{TRUE}, read monthly data from file \file{*-mh_*.dat} (generated when daily homogenized series are aggregated into monthly).}
-  \item{std}{Type of normalization:
-    \describe{
-      \item{1:}{deviations from the mean,}
-      \item{2:}{rates to the mean (only for means greater than 1),}
-      \item{3:}{standardization (subtract the mean and divide by the
-        standard deviation of the sample).}
-    }
-  }
-  \item{ini}{Initial date (first of January of \code{anyi} by default. This parameter is included in the \file{*.rda} file, but this file is not read when \code{mh=TRUE}.}
+  \item{idp}{Power of the inverse distance weights (2 by default).}
   \item{obsonly}{Do not interpolate estimated missing data. (\code{TRUE} by
   default).}
+  \item{nmax}{Maximum number of nearest stations to use (all by default).}
 }
 \details{
   Homogenized data are read from the binary file \file{VAR_ANYI-ANYF.rda}
@@ -76,28 +68,26 @@ ini=NA, obsonly=TRUE)
   obtain the final maps of absolute values at all or selected time-steps of the
   studied period.
 }
-\value{
-  This function does not return any value, since the results are stored in
-  files.
-}
 \seealso{\code{\link{homogen}}}
 \examples{
-if(requireNamespace("ncdf4") & requireNamespace("sp")) {
-  #Set a temporal working directory and write input files:
-  wd <- tempdir()
-  wd0 <- setwd(wd)
-  data(pcp_results) #Load homogenization data
-  #Write homogenization results as expected by the dahgrid function:
-  save(dah,dat,est.c,ini,nd,ndec,ne,nei,nm,std,x,file='pcp_2001-2010.rda')
-  #Now run the example:
-  grd <- expand.grid(x=seq(2.9,3.3,.1),y=seq(39.5,39.7,.1))
-  sp::coordinates(grd) <- ~ x+y
-  dahgrid('pcp',2001,2010,grid=grd)
-  #Return to user's working directory:
-  setwd(wd0)
-  #Input and output files can be found in directory:
-  print(wd)
-}
+## Set a temporal working directory and write input files:
+wd <- tempdir()
+wd0 <- setwd(wd)
+
+## Copy an example file of homogenization results:
+file.copy(exampleFiles('Temp_1991-2000.rda'),'.')
+
+## Now run the example:
+## (very coarse grid (3x2 points) to run in less than the 10 seconds CRAN limit)
+grd <- expand.grid(x=seq(2.9,3.3,.2),y=seq(39.5,39.7,.2))
+sp::coordinates(grd) <- ~ x+y
+dahgrid('Temp',1991,2000,grid=grd)
+
+## Return to user's working directory:
+setwd(wd0)
+
+## Input and output files can be found in directory:
+print(wd)
 }
 \keyword{datagen}
 

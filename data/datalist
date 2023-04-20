@@ -1,8 +1,1 @@
-Ptest: dat est.c
-Ttest: dat est.c
-dailies: stations WY003 WY018 WY020
-datcli
-pcp_results: dah dat est.c ini nd ndec ne nei nm std x
-rclimdex: rcxsta df1 df2 df3
-tmax: dat est.c
-windfr
+climatol_data: AWS_1day AWS_1year datcli p064.df p082.df p084.df prec10min RR3st SIstations Tav Temp.dat Temp.est TN3st TX3st
