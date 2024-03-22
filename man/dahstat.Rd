@@ -69,9 +69,9 @@ estcol=c(1,2,4), sep=',', dec='.')
   \item{dec}{Decimal point ('.' by default).}
 }
 \details{
-  Homogenized data are read from the file \file{VAR_ANYI-ANYF.rda}
+  Homogenized data are read from the file \file{VRB_ANYI-ANYF.rda}
   saved by \code{\link{homogen}}, while this function saves the
-  computed data for the specified period in \file{VAR_ANYIP-ANYFP.STAT},
+  computed data for the specified period in \file{VRB_ANYIP-ANYFP.STAT},
   where \code{STAT} is substituted by the \code{stat} requested
   statistic. An exception is when \code{stat="q"}, since then the
   extension of the output file will be \code{qPP}, where \code{PP}

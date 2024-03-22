@@ -8,7 +8,7 @@
 }
 \usage{
 homogen(varcli, anyi, anyf, test='snht', nref=NULL, std=NA, swa=NA,
-ndec=1, niqd=3, dz.max=.01, dz.min=-dz.max, cumc=NA, wd=NULL, inht=25,
+ndec=1, niqd=c(4,1), dz.max=.01, dz.min=-dz.max, cumc=NA, wd=NULL, inht=25,
 sts=5, maxdif=NA, maxite=999, force=FALSE, wz=.001, mindat=NA, onlyQC=FALSE,
 annual=c('mean','sum','total'), x=NULL, ini=NA, na.strings="NA", vmin=NA,
 vmax=NA, hc.method='ward.D2', nclust=300, cutlev=NA, grdcol=grey(.4),
@@ -36,7 +36,7 @@ in the detection stages, and to 4 in the final series adjustments].}
 application of the detection test [365 terms (one year) for daily data, and 60
 otherwise].}
 \item{ndec}{Number of decimal digits to round the homogenized data [1].}
-\item{niqd}{Number of interquartilic distances to delete big outliers [3].}
+\item{niqd}{Number of interquartilic distances to delete big outliers [4] and too long runs of identical values [1]. [Defaults to \code{c(4,1)}]}
 \item{dz.max}{Threshold of outlier tolerance, in standard deviations if greater than one, or as a percentage of data to reject otherwise [0.01].}
 \item{dz.min}{Lower threshold of outlier tolerance if different from \code{dz.max}.}
 \item{cumc}{Code of accumulated missing data.}
@@ -50,7 +50,7 @@ located at zero distance [\code{c(0,0,100)}].}
 \item{force}{Force direct homogenization of daily or sub-daily series [\code{FALSE}].}
 \item{wz}{Scale parameter of the vertical coordinate \code{Z} [0.001].}
 \item{mindat}{Minimum number of data for a split fragment to become a new
-series [\code{swa/2 for daily series or 12 terms otherwise}].}
+series [\code{swa/2} for daily series or 12 terms otherwise].}
 \item{onlyQC}{Set to \code{TRUE} if only initial Quality Controls are requested [\code{FALSE}]}
 \item{annual}{Running annual value to graph in the PDF output. One of 'mean' (the default), 'sum' or 'total' (equivalent to 'sum').}
 \item{x}{Time vector. Only needed if data are taken at irregular intervals.}
@@ -66,7 +66,7 @@ series [\code{swa/2 for daily series or 12 terms otherwise}].}
 \item{expl}{Perform an exploratory analysis? [\code{FALSE}].}
 \item{metad}{Use the breakpoints file as metadata? [\code{FALSE}].}
 \item{sufbrk}{Suffix to add to \code{varcli} to form the name of the provided
-metadata file ['m'].}
+metadata file [\code{'m'}].}
 \item{tinc}{Time increment between data [\code{NA}].}
 \item{tz}{Time zone [\code{'utc'}]. Only relevant for subdaily data.}
 \item{rlemin}{Data run lengths will exclude values \code{<= rlemin} in quality control [\code{NA}].}
@@ -75,7 +75,7 @@ metadata file ['m'].}
 \item{uni}{Units to use in some axis labels [''].}
 \item{raway}{Increase internal distances to reanalysis series to give more
 weight to observed series [\code{TRUE}].}
-\item{graphics}{Output graphics in a PDF file [\code{TRUE}].}
+\item{graphics}{Output graphics to a PDF file [\code{TRUE}].}
 \item{verb}{Verbosity [\code{TRUE}].}
 \item{logf}{Save console messages to a log file? [\code{TRUE}].}
 \item{snht1, snht2}{Obsolete (use \code{inht} instead), but kept for backwards compatibility.}
@@ -84,7 +84,7 @@ weight to observed series [\code{TRUE}].}
 \details{
 Input data must be provided in two text files, one with the data (with
 extension \code{dat}) and another with the station coordinates (with extension
-\code{est}). Both have as base name, \file{VAR_YEAR-YEAR}, composed by
+\code{est}). Both have as base name, \file{VRB_YEAR-YEAR}, composed by
 the short name of the climatological variable, and the initial and final years
 of the data, as set in the first three parameters of the call, \code{varcli},
 \code{anyi} and \code{anyf}.
@@ -112,9 +112,9 @@ This function will stop with an error condition if any time step becomes void
 of data in all stations at the same time. One or more series with data in the
 void time steps must be added to successfully run \code{homogen} again. If no
 other series are available in the area, reanalysis series of the closer
-grid-points can be used, adding their coordinates to the *.est file and
-prepending an asterisk (*) to the codes assigned to the series as mentioned
-above.
+grid-points can be used, adding their coordinates to the \code{*.est} file and
+prepending an asterisk (\code{*}) to the codes assigned to the series as
+mentioned above.
 
 \code{dz.max} (and \code{dz.min} if different from \code{dz.max}) can be a
 vector of two values, one for suspect data and the other for probable errors.
@@ -163,8 +163,8 @@ the series, providing box-plots for every series showing (1) the range of their
 values, (2) their increments between successive terms and (3) the length of
 segments with constant data. Too big outliers are deleted at this stage because
 they would compromise the quality of the homogenization and missing data
-filling. During the rest of the process outlier detection is based on spatial
-differences between neighboring normalized data.
+filling. During the rest of the process outlier detection and deletion is based
+on spatial differences between neighboring normalized data. (Deleted data which were not errors but due to local phenomena can be restored to the homogenized series with the help of the \code{datrestore} function.)
 
 The following pages offer: (a) a summary of the data availability and frequency
 distribution; (b) a correlogram of the first differences of the series, (c) a
@@ -191,9 +191,9 @@ to use that reconstructed from the last sub-period (the usual behavior of
 other homogenization packages), which is perfect for climate monitoring of
 newly incoming data. However, statistics derived from all of them can be useful
 for climatic mapping, when no a priori knowledge can indicate which of the
-sub-periods will be more representative at the studied spatial scale).
+sub-periods will be more representative at the spatial scale of the map).
 
-The processing time can be from seconds (a few monthly series) to many hours
+The processing time can range from seconds (a few monthly series) to many hours
 (hundreds of daily series). If you must process a huge amount of data, you
 should consider splitting your study region into smaller areas to be
 homogenized independently.
@@ -257,15 +257,14 @@ air temperature dataset over Romania. Int. J. Climatol., 40:2599-2608, DOI:
 Visit <https://climatol.eu/> for updates of code and documentation (user's
 guide, links to videos, etc).
 }
-\seealso{\code{\link{dahstat}}, \code{\link{dahgrid}}, \code{\link{outrename}},
-\code{\link{dd2m}}}
+\seealso{\code{\link{dahstat}}, \code{\link{dahgrid}}, \code{\link{outrename}}, \code{\link{datrestore}}, \code{\link{dd2m}}}
 \examples{
 ## Set a temporal working directory and write input files:
 wd <- tempdir()
 wd0 <- setwd(wd)
 data(climatol_data)
 write.table(Temp.est,'Temp_1961-2005.est',row.names=FALSE,col.names=FALSE)
-write(Temp.dat,'Temp_1961-2005.dat',ncolumns=12)
+write(Temp.dat,'Temp_1961-2005.dat')
 
 ## Now run the example:
 homogen('Temp',1961,2005)

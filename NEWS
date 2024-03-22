@@ -1,6 +1,35 @@
-HISTORY OF CHANGES IN Climatol
+HISTORY OF CHANGES IN climatol
 
-2023-04-09, version 4.0:
+2024-03-23, version 4.1.0:
+- climatol2rclimdex: Issues message error in the absence of common station
+  codes in the three variables involved.
+- csv2climatol: Lines without observation are now disregarded.
+- dahstat: Fixed bug when stat='series' and only one series was requested.
+- daily2climatol: Data columns may be only two if the first one contains dates
+  in Date or POSIX format. Bug in removing lines with no data fixed.
+- datrestore: New function to restore deleted outliers checked as true into
+  the dah matrix of homogenized series contained in the *.rda output results.
+- diagwl: Is now resistant to missing data in the input series, and the
+  parameter shem is guessed. Corrected inconsistencies between parameters
+  yeari, yearf and per.
+- fix.sunshine: Changes negative values to zeros.
+- homogen:
+  - Adjusts break-points in a single series with a single trusted reference
+    without the need to set force=TRUE.
+  - niqd defaults to c(4,1) instead of 3 to delete clearly wrong data and long
+    runs of identical data (with niqd>1).
+  - Fixes a problem that prevented to draw high resolution coastlines in the
+    map of stations.
+  - Fixes the bug of extra %d in sprintf("dahstat(...)#averages",...)
+  - outliers not deleted because of having only one reference are not plotted
+    in red anymore in the final histogram of standardized anomalies.
+  - new consistency check when data seem sub-daily.
+- IDFcurves: Hourly data are now allowed and issues with legend have been fixed.
+- rclimdex2climatol: Fixed bug when reading the stations file.
+- windrose: New parameters allow to choose the number of wind directions and to
+define the wind speed classes.
+
+2023-04-09, version 4.0.0:
 - Only the three first parameters are needed in the homogen() function to
   process any climatic variable. The rest of parameters are guessed or have
   safe default values.

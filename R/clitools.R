@@ -48,7 +48,7 @@ retper=c(5,10,20,30,50,75,100),...) {
     stop('Please, install the package "evd" and run this function again')
   z <- eval(substitute(alist(...)))
   if(!is.null(z$lty)) lty <- z$lty else lty <- 1:5
-  if(!is.null(z$col)) col <- z$col else col <- 1:5
+  if(!is.null(z$col)) col <- z$col else col <- 1:6
   tdif <- diff(prdat[,clmn[1]])
   tint <- quantile(tdif,probs=c(0,.05,.5,.95,1))
   if(length(unique(tint))>1) { #check if time intervals are constant:
@@ -58,10 +58,14 @@ retper=c(5,10,20,30,50,75,100),...) {
     cat('data. (Observations with missing data are allowed.)\n')
     stop()
   } else tint <- tint[3] #constant time interval
-  #check if data are sub-hourly:
+  #check data time frequency:
   tunit <- attr(tint,'units')
   if(tunit=='secs') tint <- tint/60 #tint in minutes
-  else if(tunit!='mins') stop(sprintf('Time interval between observations is %s %s.\nPlease, provide sub-hourly data.',tint,tunit))
+  else if(tunit=='hours') tint <- tint*60 #tint in minutes
+  attr(tint,'units') <- 'minutes'
+  #remove aggregation times lower than the data time resolution:
+  timeaggr <- timeaggr[timeaggr >= tint]
+  if(length(timeaggr)==0) stop('Requested aggregation times inconsistent with data time resolution')
   year <- strftime(prdat[,clmn[1]],'%Y',tz=tz) #year of the observations
   pr <- prdat[,clmn[2]] #precipitation data
   if(!is.na(na.code)) pr[pr==na.code] <- NA #apply missing data code
@@ -69,11 +73,11 @@ retper=c(5,10,20,30,50,75,100),...) {
   mdy <- median(table(year)) #median no. of data per year (missing included)
   ny <- length(ndy) #no. of years
   #maximum precipitation in each aggregation time:
-  ndaggr <- timeaggr/as.numeric(tint) #no. of data in each aggregation time
+  aggrhours <- timeaggr/as.numeric(tint) #aggregation times in hours
   nt <- length(timeaggr) #no. of aggregation times
   prmax <- matrix(NA,ny,nt)
   for(i in 1:nt) {
-    z <- filter(pr,rep(1,ndaggr[i]))
+    z <- filter(pr,rep(1,aggrhours[i]))
     prmax[,i] <- tapply(z,year,max,na.rm=TRUE)
   }
   #disregard annual maximums of years with less than mindpy data proportion:
@@ -96,12 +100,12 @@ retper=c(5,10,20,30,50,75,100),...) {
     }
   }
   #plot IDF curves:
-  tagghours <- timeaggr/60 #aggregation times in hours
-  pxh=scale(t(pmax),center=FALSE,scale=tagghours) #pmax in mm/h
-  matplot(tagghours,t(pxh),type='l',lwd=2,xlab='Hours',las=1,
+  pxh=scale(t(pmax),center=FALSE,scale=aggrhours) #pmax in mm/h
+  matplot(aggrhours,t(pxh),type='l',lwd=2,xlab='Hours',las=1,
     ylab=sprintf('Intensity (%s/h)',prunits),...)
   grid(col=grey(.4))
-  legend(9,120,lwd=2,lty=lty,col=col,legend=retper,title='Years',bg='white')
+  legend(mean(range(aggrhours)),0.9*max(pxh),lwd=2,lty=lty,col=col,
+    legend=retper,title='Years',bg='white')
   title(sprintf('IDF at %s (%s)',stname, period))
   #return maximum precipitation accumulations:
   rownames(pmax) <- timeaggr
@@ -154,41 +158,49 @@ col4RP=c('cyan','yellow','red'),title='') {
 
 #- diagwl.- Walter & Lieth climatic diagram.
 diagwl <- function(dat, cols=1:6, format='%Y-%m-%d', yeari=NA, yearf=NA,
-stname="", alt=NA, per="", mlab="", shem=FALSE, p3line=FALSE, ...) {
+stname="", alt=NA, per="", mlab="", shem=NULL, p3line=FALSE, ...) {
 #dat: Data frame with the required climatic data (see details).
-#cols: Columns containing the needed data [1:6].
+#cols: Columns containing the needed data [1:6]. Set to NULL if a monthly
+#   climate summary is provided.
 #format: Format of the dates if data are provided in 4 columns ['%Y-%m-%d'].)
-#yeari, yearf: If dat is a file name, initial and final years of the period to
-#  use (defaults to the period contained in the data file).
+#yeari, yearf: initial and final years of the period to use. (Defaults to the
+#  period contained in dat, but if it contains a climate summary, then the parameter per should be supplied (see below).
+#  must be supplied.)
 #stname: Name of the climatological station.
 #alt: Elevation (altitude) of the climatological station.
 #per: If data is a data frame with already calculated climate averages, the
 #  original period of the data. 
 #mlab: Vector of 12 monthly labels for the X axis (see the details).
-#shem: Southern hemisphere? (FALSE by default.)
+#shem: Southern hemisphere? (NULL by default, to be detected from warm season).
 #p3line: Draw a supplementary precipitation line referenced to three times the
 # temperature? (FALSE by default; this parameter was suggested by Bogdan Rosca)
 #...: Other optional graphic parameters.
   old.par <- par(no.readonly = TRUE)
   on.exit(par(old.par))
   par(mar=c(4,4,5,4), las=1, new=FALSE)
-  pcol="#005ac8"; tcol="#e81800"; pfcol="#79e6e8"; sfcol="#09a0d1" #used colors
+  pcol='#005ac8'; tcol='#e81800'; pfcol='#79e6e8'; sfcol='#09a0d1' #used colors
   #etiquetas de los meses
   if(length(mlab)!=12) {
-    if(mlab=="es") mlab=c("E","F","M","A","M","J","J","A","S","O","N","D")
-    else if(mlab=="en") mlab=c("J","F","M","A","M","J","J","A","S","O","N","D")
-    else mlab=c(1:12) #numeric labels
+    if(mlab=='es') mlab <- c('E','F','M','A','M','J','J','A','S','O','N','D')
+    else if(mlab=='en'|mlab=='fr') mlab <- c('J','F','M','A','M','J','J','A',
+      'S','O','N','D')
+    else mlab <- c(1:12) #numeric labels
   }
-  if(is.null(cols)) { #read file and calculate climate summary
-    if(ncol(dat)<12) stop('Data frame has less than 12 columns!')
+  if(is.null(cols) | length(cols)>6) { #assume data frame contains a monthly climate summary:
+    if(ncol(dat)<12) stop("Input data frame has more than 6 and less than 12 columns!")
     if(ncol(dat)==13) dat <- dat[,1:12]
     nr <- nrow(dat) #no. of raws of monthly data
     switch(nr,
-      stop('At least two monthly rows (average precipitation and temperature)\n  must be supplied'),
+      stop("At least two monthly rows (average precipitation and temperature)\n  must be supplied"),
       cat("Warning: When only monthly precipitation and mean temperature\n         are provided, no frost risk will be drawn.\n"),
       cat("Warning: When no absolute minimum temperatures are provided,\n         likely frost will not be drawn.\n")
     )
   } else {
+    z <- apply(is.na(dat[,cols]),1,sum); nz <- sum(z>0) #check for missing data
+    if(nz>0) { #remove missing data:
+      cat("Warning: removing",nz,"lines containing missing data\n")
+      dat <- dat[z==0,]
+    }
     if(length(cols)==4) { #disaggregate dates into year, month, day:
       dates <- as.Date(dat[,cols[1]],format=format)
       dat <- data.frame(YY=as.integer(strftime(dates,'%Y')),
@@ -196,22 +208,25 @@ stname="", alt=NA, per="", mlab="", shem=FALSE, p3line=FALSE, ...) {
         DD=as.integer(strftime(dates,'%d')),dat[,cols[2:4]])
     } else dat <- dat[,cols]
     z <- range(dat[,1])
-    if(is.na(yeari)) yeari <- z[1]
-      else if(yeari < z[1]) yeari <- z[1]
-      else if(yeari > z[1]) d <- d[d[,1] >= yeari,]
-    if(is.na(yearf)) yearf <- z[2]
-      else if(yearf > z[2]) yearf <- z[2]
-      else if(yearf < z[1]) d <- d[d[,1] <= yearf,]
+    if(is.na(yeari)) yeari <- z[1] else if(yeari < z[1]) yeari <- z[1]
+    if(is.na(yearf)) yearf <- z[2] else if(yearf > z[2]) yearf <- z[2]
+    if(yearf < yeari) { z <- yeari; yeari <- yearf; yearf <- z }
+    dat <- dat[dat[,1] >= yeari & dat[,1] <= yearf,]
     per=sprintf('%d-%d',yeari,yearf) #period
     ny <- yearf-yeari+1 #no. of years
     datcli <- matrix(NA,4,12)
-    datcli[1,] <- round(aggregate(dat[,4],list(dat[,2]),sum)$x / ny , 1)
-    datcli[2,] <- round(aggregate(dat[,5],list(dat[,2]),mean)$x , 1)
-    datcli[3,] <- round(aggregate(dat[,6],list(dat[,2]),mean)$x , 1)
-    datcli[4,] <- round(aggregate(dat[,6],list(dat[,2]),min)$x , 1)
+    datcli[1,] <- round(aggregate(dat[,4],list(dat[,2]),sum,na.rm=TRUE)$x / ny , 1)
+    datcli[2,] <- round(aggregate(dat[,5],list(dat[,2]),mean,na.rm=TRUE)$x , 1)
+    datcli[3,] <- round(aggregate(dat[,6],list(dat[,2]),mean,na.rm=TRUE)$x , 1)
+    datcli[4,] <- round(aggregate(dat[,6],list(dat[,2]),min,na.rm=TRUE)$x , 1)
     dat <- datcli; nr <- nrow(dat)
   }
   dat <- as.matrix(dat)
+  if(is.null(shem)) { #see if warm season is in Dec-Jan-Feb:
+    if(nr==2) tmean <- dat[2,] else tmean <- apply(dat[2:3,],2,mean)
+    if(mean(tmean[c(1,2,12)]) > 2+(mean(tmean[6:8]))) shem <- TRUE
+    else shem <- FALSE
+  }
   if(shem) { #Southern hemisphere: shift data six months forward
     m1 <- dat[,1:6]
     m2 <- dat[,7:12]
@@ -220,8 +235,8 @@ stname="", alt=NA, per="", mlab="", shem=FALSE, p3line=FALSE, ...) {
   }
   p <- dat[1,] #monthly average precipitations
   if(nr==2) tm <- dat[2,]
-  else tm <- apply(dat[2:3,],2,mean)  #monthly average temperatures
-  pmax <- max(p) #maximum precipitation
+  else tm <- apply(dat[2:3,],2,mean,na.rm=TRUE)  #monthly average temperatures
+  pmax <- max(p,na.rm=TRUE) #maximum precipitation
   ymax <- 60  #default maximum Y-axis ordinate
   if(pmax > 300) ymax <- 50 + 10*floor((pmax+100)/200)
   ymin <- min(-1.5,min(tm)) #minimum Y-axis ordinate
@@ -535,35 +550,39 @@ k=NULL, palneg=c('blue','white'), palpos=c('white','red'), ...) {
       zp=pvl; zp[!is.na(zp)]=0
       zp[pvl>=.05] <- cex*.6; zp[pvl>=.1] <- cex
       points(row(zp)+anyi+minyr-2,col(zp)+minyr-1,col='white',pch=19,cex=zp)
-      legend("topleft",pch=15,col='grey50',bg='white',pt.cex=2,
+      legend('topleft',pch=15,col='grey50',bg='white',pt.cex=2,
         legend=c(as.expression(bquote(~'0.05 <='~alpha~'< 0.10')),
         as.expression(bquote(~'0.10 <='~alpha))))
-      legend("topleft",pch=19,col='white',pt.cex=c(.6,1),
+      legend('topleft',pch=19,col='white',pt.cex=c(.6,1),
         legend=c('',''),bty='n')
-      if(is.na(stname)) title('Running trends')
-      else title(sprintf('Running trends at %s',stname))
+      if(is.na(stname)) title("Running trends")
+      else title(sprintf("Running trends at %s",stname))
     }
     return(invisible(list(tnd=tnd,pvl=pvl)))
   }
 }
 
 #- windrose.- Plot a windrose from a table with columns 'DateTime, Dir, Speed'.
-windrose <- function(dat, cols=1:3, code='', name='', uni='m/s', maxnsc=8,
-fnum=4, fint=5, flab=2, pal=c('cyan','yellow','orange','red','brown'),
-ang=-3*pi/16, margin=c(0,0,4,0), ...) {
+windrose <- function(dat, cols=1:3, code='', name='', uni='m/s', ndir=16,
+spdcut=NULL, maxnsc=8, fnum=4, fint=5, flab=2, ang=-3*pi/16, margin=c(0,0,4,0),
+pal=c('cyan','yellow','orange','red','brown'), ...) {
 #dat: Data frame with columns DateTime, Wind direction and Wind speed.
 #cols: Columns containing DateTime, Wind direction and Wind speed.
 #code: Station code.
 #name: Station name.
 #uni: Speed units for the legend header.
-#maxnsc: Maximum number of wind speed classes.
+#ndir: Number of classes of wind direction [16].
+#spdcut: Speed cuts to define classes [NULL: automatic].
+#maxnsc: Maximum number of wind speed classes if spdcut=NULL [8].
 #fnum: Number of reference circles to plot.
 #fint: Frequency interval (in %) between reference circles.
 #flab: Parameter indicating which circles must be labelled (1: only outer circle; 2: all circles, the default; any other value will not lable any circle).
-#pal: Color gradation to fill the frequency polygons.
 #ang: Angle along which circles will be labelled.
 #margin: Margins vector for the plot (to be passed to \code{par}).
+#pal: Color gradation to fill the frequency polygons.
 #...: Other graphic parameters.
+  if(ndir<4) stop('Please, set at least ndir=4')
+  if(ndir>36) stop('Please, set ndir=36 at most')
   #----------- compute frequencies by directions ---------------
   z <- range(dat[,cols[1]]); startdate <- z[1]; enddate <- z[2]
   dd <- dat[,cols[2]]; vv <- dat[,cols[3]]; rm(dat)
@@ -575,37 +594,43 @@ ang=-3*pi/16, margin=c(0,0,4,0), ...) {
     'of the provided data frame!\n'); stop()
   }
   cal <- sum(vv==0,na.rm=TRUE) #nr. of calm wind observations
-  dd <- round(dd/360*16+1); dd[dd==17] <- 1 #direction classes
+  dd <- round(dd/360*ndir+1); dd[dd==(ndir+1)] <- 1 #direction classes
   vm <- tapply(vv,as.factor(dd),mean,na.rm=TRUE) #mean speed by direction
   vx <- tapply(vv,as.factor(dd),max,na.rm=TRUE) #max. speed by direction
   vmt <- mean(vv,na.rm=TRUE) #overall mean speed
   vmx <- max(vv,na.rm=TRUE) #overall max. speed
   vv[vv==0] <- NA #remove calm observations
   dd[is.na(vv)] <- NA #avoid directions with missing speed
-  vvc <- pretty(vv) #speed classes
-  nvvc <- length(vvc)-1 #number of speed classes
-  #convert wind speeds to factor classes:
-  if(nvvc>maxnsc) { #if too many speed classes, limit their number:
-    nvvc <- maxnsc
-    vvf <- cut(vv,c(vvc[1:maxnsc],999))
-    spclasses <- paste(vvc[1:nvvc],vvc[2:(nvvc+1)],sep='-')
-    spclasses[nvvc] <- paste('>=',vvc[maxnsc])
-    geflag <- TRUE
+  if(is.null(spdcut)) {
+    vvc <- pretty(vv) #speed classes
+    nvvc <- length(vvc)-1 #number of speed classes
+    #convert wind speeds to factor classes:
+    if(nvvc>maxnsc) { #if too many speed classes, limit their number:
+      nvvc <- maxnsc
+      vvf <- cut(vv,c(vvc[1:maxnsc],999))
+      spclasses <- paste(vvc[1:nvvc],vvc[2:(nvvc+1)],sep='-')
+      spclasses[nvvc] <- paste('>=',vvc[maxnsc])
+      geflag <- TRUE
+    } else {
+      vvf <- cut(vv,vvc)
+      spclasses <- paste(vvc[1:nvvc],vvc[2:(nvvc+1)],sep='-')
+      geflag <- FALSE
+    }
   } else {
-    vvf <- cut(vv,vvc)
-    spclasses <- paste(vvc[1:nvvc],vvc[2:(nvvc+1)],sep='-')
+    vvf <- cut(vv, spdcut); nvvc <- length(spdcut)-1
+    spclasses <- paste(spdcut[1:nvvc],spdcut[2:(nvvc+1)],sep='-')
     geflag <- FALSE
   }
   #compute the frequency table:
   fr <- table(vvf,dd)
   #if there are void direction classes, fill them with zeroes:
   z <- as.integer(colnames(fr))
-  if(length(z)<16) {
+  if(length(z)<ndir) {
     zrn <- rownames(fr)
-    zm <- matrix(rep(0,16*nrow(fr)),dim(fr))
+    zm <- matrix(rep(0,ndir*nrow(fr)),dim(fr))
     zm[,z] <- fr
     fr <- zm
-    colnames(fr) <- as.character(1:16) 
+    colnames(fr) <- as.character(1:ndir) 
     rownames(fr) <- zrn
   }
   #distribute calms in the first speed class:
@@ -617,14 +642,17 @@ ang=-3*pi/16, margin=c(0,0,4,0), ...) {
   tab <- cbind(fr,frt)
   tab <- round(rbind(tab,c(frtd,sum(frtd))),1)
   tab <- data.frame(rbind(tab,round(c(vm,vmt),1),round(c(vx,vmx),1)))
-  names(tab) <- c('N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW','Total')
+  if(ndir==16) names(tab) <- c('N','NNE','NE','ENE','E','ESE','SE','SSE','S',
+    'SSW','SW','WSW','W','WNW','NW','NNW','Total')
+  else if(ndir==8) names(tab) <- c('N','NE','E','SE','S','SW','W','NW','Total')
+  else if(ndir==4) names(tab) <- c('N','E','S','W','Total')
+  else names(tab) <- c('N',as.character(2:ndir),'Total')
   row.names(tab) <- c(spclasses,'Total','Mean Sp.','Mx.M.Sp.')
   #----------- plot the windrose -------------------------------
   old.par <- par(no.readonly=TRUE)
   on.exit(par(old.par))
-  fr <- tab[1:nvvc,1:16]
+  fr <- tab[1:nvvc,1:ndir]
   if(geflag) row.names(fr)[nvvc] <- paste('>=',vvc[nvvc])
-  ndir <- 16 #nr. of direction classes
   nr <- nvvc #nr. of speed classes
   fmax <- fnum*fint #max. frequency to be circled
   key <- (nr>1) #legend if more than one speed class

@@ -8,5 +8,5 @@ importFrom("grDevices", "colorRampPalette", "graphics.off", "gray", "grey",
            "hsv", "pdf", "rainbow")
 importFrom("stats", "acf", "aggregate", "approx", "coef", "cor", "cutree",
            "diffinv", "dist", "filter", "hclust", "lm", "median", "na.pass",
-           "quantile", "sd")
+           "quantile", "sd", "IQR")
 importFrom("utils", "read.csv", "read.table", "write.csv", "write.table")

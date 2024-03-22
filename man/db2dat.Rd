@@ -30,7 +30,7 @@ vtable, vcode, vdate, vval, stable, scode, sname, sx, sy, sz)
   \item{sz}{Name of the variable containing elevations (meters) in the \code{stable} table.}
 }
 \details{
-This function creates the two input files needed by the homogenization functions of this package, \file{VAR_YEAR-YEAR.dat} (holding the data) and \file{VAR_YEAR-YEAR.est} (holding station coordinates, codes and names).
+This function creates the two input files needed by the homogenization functions of this package, \file{VRB_YEAR-YEAR.dat} (holding the data) and \file{VRB_YEAR-YEAR.est} (holding station coordinates, codes and names).
 
 The table in the accessed database must contain either daily or monthly data (set \code{daily=FALSE} in this case). Otherwise the number of data per series will not be match the expected value and the function will fail.
 

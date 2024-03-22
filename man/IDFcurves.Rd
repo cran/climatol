@@ -31,7 +31,7 @@ retper=c(5,10,20,30,50,75,100),...)
   When setting \code{gumbel=FALSE} a Generalized Extreme Value distribution will be adjusted instead of the particular case of a Gumbel distribution.
 }
 \value{
-  A table of maximum precipitation accumulations is returned invisibly.
+  A table of maximum precipitation accumulations (totals, not mm/h as in the graphic) is returned invisibly.
 }
 \examples{
 \dontrun{

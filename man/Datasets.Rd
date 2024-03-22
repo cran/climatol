@@ -60,6 +60,8 @@ head(p064.df)
 head(AWS_1year)
 }
 \references{
-Lundstad, Elin; Brugnara, Yuri; Broennimann, Stefan (2022): Global Early Instrumental Monthly Meteorological Multivariable Database (HCLIM). PANGAEA, https://doi.org/10.1594/PANGAEA.940724
+Lundstad, Elin; Brugnara, Yuri; Broennimann, Stefan (2022): Global Early
+Instrumental Monthly Meteorological Multivariable Database (HCLIM).
+https://doi.org/10.1594/PANGAEA.940724
 }
 \keyword{datasets}

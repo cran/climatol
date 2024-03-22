@@ -5,8 +5,9 @@
   This function can be useful to prepare the \code{climatol} input files when the users have their daily data in per station individual files.
 }
 \usage{
-daily2climatol(stfile, stcol=1:6, datcol=1:4, varcli='VRB', anyi=NA, anyf=NA,
-  mindat=365, sep=',', dec='.', na.strings='NA', header=TRUE)
+daily2climatol(stfile, stcol=1:6, datcol=1:4, varcli, anyi=NA, anyf=NA,
+  mindat=365, sep=',', dec='.', na.strings='NA', dateformat='\%Y-\%m-\%d',
+  header=TRUE)
 }
 \arguments{
   \item{stfile}{File with file names and station coordinates, codes and names.}
@@ -15,15 +16,15 @@ daily2climatol(stfile, stcol=1:6, datcol=1:4, varcli='VRB', anyi=NA, anyf=NA,
   for codes and/or names columns if they are missing, and numeric values will
   be assigned.)}
   \item{datcol}{Columns in data files holding year, month, day, value.}
-  \item{varcli}{(Short) name of the studied climatic variable.}
+  \item{varcli}{Short name of the studied climatic variable.}
   \item{anyi}{First year to study (defaults to the first year of available data).}
   \item{anyf}{Last year to study (defaults to the last year of available data).}
   \item{mindat}{Minimum required number of data per station. (Defaults to 365
   daily data.)}
-  \item{sep}{Field separator in all files, whether data or stations. (Defaults
-  to white space.)}
+  \item{sep}{Field separator in all files, whether data or stations. (',' by default.)}
   \item{dec}{Decimal point. ('.' by default.)}
   \item{na.strings}{Strings coding missing data (\code{'NA'} by default).}
+  \item{dateformat}{Format of dates if not in separate columns. (\code{'\%Y-\%m-\%d'} by default.)}
   \item{header}{Logical value indicating whether input files have a header line
   or not. (\code{TRUE} by default.)}
 }
@@ -53,7 +54,7 @@ write.csv(p084.df,'p084.csv',row.names=FALSE,quote=FALSE)
 write.csv(p082.df,'p082.csv',row.names=FALSE,quote=FALSE)
 
 ## Now run the example:
-daily2climatol('stations.csv',varcli='RR')
+daily2climatol(stfile='stations.csv',varcli='RR')
 
 ## Return to user's working directory:
 setwd(wd0)

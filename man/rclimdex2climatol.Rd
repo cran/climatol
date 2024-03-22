@@ -5,31 +5,31 @@
   This function can be useful to prepare the \code{climatol} input files when the user have their daily data in RClimDex format.
 }
 \usage{
-rclimdex2climatol(stfile, kvar, chrcod=c(6,10), varcli='', sep='\t', anyi=NA,
+rclimdex2climatol(stfile, stcol=1:5, kvar, chrcod=c(6,10), sep='', anyi=NA,
 anyf=NA, mis=-99.9, mindat=365, header=TRUE)
 }
 \arguments{
   \item{stfile}{Name of the file with the list of data file names and station coordinates, codes and names.}  
+  \item{stcol}{Columns in \code{stfile} holding data file names, longitudes,
+  latitudes, elevations and station codes and names. (Defaults to 1:5.)}
   \item{kvar}{RClimDex variable to extract: 1 (RR), 2 (TX), 3 (TN).}
   \item{chrcod}{Initial and final characters of data file names to be used as station codes. c(6,10) by default.}
-  \item{varcli}{(Short) name of the studied climatic variable. Defaults to 'RR', 'TX' or 'TN', depending on \code{kvar}.}
-  \item{sep}{Field separator in \code{stfile} and data files (Tab by default).}
+  \item{sep}{Field separator in \code{stfile} and data files (space or tab by default).}
   \item{anyi}{First year to study. (Defaults to the first year of available data.)}
   \item{anyf}{Last year to study. (Defaults to the last year of available data.)}
   \item{mis}{Missing data code. (Defaults to -99.9.)}
   \item{mindat}{Minimum required number of data per station. (Defaults to 365 daily data.)}
-  \item{header}{Set to \code{TRUE} (the default) if files have a header)}
+  \item{header}{Do files have a header line? \code{TRUE} by default).}
 }
 \details{
 Users of the RClimDex program can convert their daily data files to the
 \code{climatol} format. All files listed in \code{stfile} will be read, and the
 selected variable (precipitation, maximum or minimum temperature) will be
-stored in a unique *.dat file, with its companion *.est station file.
-Therefore, if you want to convert all three variables, you must run this
+stored in a unique \code{*.dat} file, with its companion \code{*.est} station
+file.  Therefore, if you want to convert all three variables, you must run this
 function three times.
 
-If data files do not provide station names in their 9th column, station codes
-will be used also as station names.
+Coordinates must be given in degrees with decimals, using the minus sign for sourthern latitudes and western longitudes.
 }
 \seealso{\code{\link{homogen}}, \code{\link{climatol2rclimdex}}}
 \examples{
