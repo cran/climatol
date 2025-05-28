@@ -1,30 +1,61 @@
 HISTORY OF CHANGES IN climatol
 
+2025-05-28, version 4.2.0:
+- csv2climatol: Now enabled to process subdaily data.
+- dahstat: Added option stat='mseries' to output homgenized monthly aggregates
+  to a CSV file.
+  - No longer fails with an error when trusted reference series are not at the
+    end of the datasets.
+- dd2m: Series with less than 12 monthly data are removed from the output.
+- homogen: A new initial check removes series with less than mindat data items.
+  - The initial QC implements detection and deletion of spikes in the series,
+    except if their probability distribution is very skewed. (niqd now defaults
+    to c(4,6,1).)
+  - The correlogram disregards correlations calculated with less than 10 data
+    pairs.
+  - Reciprocal outliers (same date and opposite sign in nearby stations) are
+    reinstated by means of the datrestore function.
+  - Deletes fragments with zero mean if std=2 (normal ratio normalization).
+  - Zeroes are not excluded by default from the detection and deletion of long
+    runs of identical values when series are not daily or subdaily.
+  - raway is now a factor to apply to distances involving reanalysis series
+    previously increased by the median distance between observational series.
+  - onlyQC no longer saves the original data as *-QC_*, but as *-ori_*, as
+    users sometimes thought they should continue working with the *-QC_* files.
+- read.dat: Fixed bug in this internal function that failed to identify daily
+  data.
+- weekendaccum: New function to check for weekends or other days with false
+  zero precipitation which actually has been accumulated. (Applicable to daily
+  precipitation series only.)
+
 2024-03-23, version 4.1.0:
 - climatol2rclimdex: Issues message error in the absence of common station
   codes in the three variables involved.
-- csv2climatol: Lines without observation are now disregarded.
+- csv2climatol: Lines without observations are now disregarded.
 - dahstat: Fixed bug when stat='series' and only one series was requested.
-- daily2climatol: Data columns may be only two if the first one contains dates
-  in Date or POSIX format. Bug in removing lines with no data fixed.
+- daily2climatol: Columns of the data files may be only two if the first one
+  contains dates in Date or POSIX format. Fixed bug in removing lines with no
+  data.
 - datrestore: New function to restore deleted outliers checked as true into
   the dah matrix of homogenized series contained in the *.rda output results.
 - diagwl: Is now resistant to missing data in the input series, and the
-  parameter shem is guessed. Corrected inconsistencies between parameters
+  parameter shem is now guessed. Corrected inconsistencies between parameters
   yeari, yearf and per.
 - fix.sunshine: Changes negative values to zeros.
 - homogen:
-  - Adjusts break-points in a single series with a single trusted reference
-    without the need to set force=TRUE.
+  - Break-points in a single series with a single trusted reference are now
+    adjusted without the need to set force=TRUE.
   - niqd defaults to c(4,1) instead of 3 to delete clearly wrong data and long
     runs of identical data (with niqd>1).
-  - Fixes a problem that prevented to draw high resolution coastlines in the
+  - Fixed a problem that prevented to draw high resolution coastlines in the
     map of stations.
-  - Fixes the bug of extra %d in sprintf("dahstat(...)#averages",...)
-  - outliers not deleted because of having only one reference are not plotted
+  - Fixed the bug of extra %d in sprintf("dahstat(...)#averages",...)
+  - Outliers not deleted because of having only one reference are not plotted
     in red anymore in the final histogram of standardized anomalies.
-  - new consistency check when data seem sub-daily.
-- IDFcurves: Hourly data are now allowed and issues with legend have been fixed.
+  - New consistency check when data seem sub-daily.
+  - boxplots and correlogram weight less and display faster in the output PDF.
+- IDFcurves: Hourly data are now allowed and issues with the legend have been
+  fixed.
 - rclimdex2climatol: Fixed bug when reading the stations file.
 - windrose: New parameters allow to choose the number of wind directions and to
 define the wind speed classes.
@@ -101,7 +132,7 @@ define the wind speed classes.
   compatibility with the 1.x versions.
 
 2006-10-06, version 1.0.3:
-- Change of '°C' by just 'C' to avoid non-ascii characters warnings in the R
+- Change of 'Â°C' by just 'C' to avoid non-ascii characters warnings in the R
   checking process of the package.
 - Update of the PDF poster of the documentation.
 

@@ -28,8 +28,7 @@ estcol=c(1,2,4), sep=',', dec='.')
       \item{"tnd"}{OLS trends and their p-values,}
       \item{"series"}{Do not compute any statistic; only write homogenized
         series and flags into two CSV files.}
-      \item{"mseries"}{As before, but output series in individual *.csv files.
-        (Not applicable to daily series.)}
+      \item{"mseries"}{As before, but output series of homogenized monthly aggregates into a *.csv file. (Only applicable to daily or subdaily series.)}
     }
   }
   \item{ndc}{Number of decimal places to be saved in the output file (defaults to that used in the homogenization).}

@@ -1,10 +1,11 @@
 \name{climatol2rclimdex}
 \alias{climatol2rclimdex}
-\title{Convert DAILY data from \code{climatol} to RClimDex input format}
+\title{Convert DAILY data from \code{climatol} to RClimDEX/RClimPACT input
+format}
 \description{
   This function reads homogenized daily series of precipitation (RR) and
   extreme temperatures (TX, TN), adjusted from the last homogeneous sub-period,
-  and writes them in files (one per station) with RClimDex format.
+  and writes them in files (one per station) with RClimDEX format.
 }
 \usage{
 climatol2rclimdex(varRR, varTX, varTN, yiRR, yfRR, yiTX=yiRR, yfTX=yfRR,
@@ -15,15 +16,16 @@ climatol2rclimdex(varRR, varTX, varTN, yiRR, yfRR, yiTX=yiRR, yfTX=yfRR,
   \item{yiRR, yfRR}{Initial and final years of the homogenized RR series.}
   \item{yiTX, yfTX, yiTN, yfTN}{Initial and final years of the TX and TN series. (The same as yiRR and yfRR by default.)}
   \item{header}{include a header in the files? (\code{TRUE} by default)}
-  \item{prefix}{Prefix to prepend to station codes to name the output RClimDex files.}
-  \item{dir}{Destination directory of the output RClimDex files. (If not set, they will be saved into the current R working directory).}
+  \item{prefix}{Prefix to prepend to station codes to name the output RClimDEX files.}
+  \item{dir}{Destination directory of the output RClimDEX files. (If not set, they will be saved into the current R working directory).}
   \item{na}{Missing data code to use in the ouput files. (\code{'-99.9'} by
   default.)}
 }
 \details{
 After homogenizing daily series with \code{climatol}, the user may be
-interested in applying the RClimDex program to the homogenized series. This
-function automatizes the conversion of file formats between both programs.
+interested in applying the RClimDEX or RClimPACT/RClimPACTs programs to the
+homogenized series. This function automatizes the conversion between both file
+formats.
 
 Note that if there are some days with TX<TN (can happen because of the
 independent homogenization of extreme temperatures), a trivial fix will be

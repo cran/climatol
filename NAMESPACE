@@ -5,7 +5,7 @@ importFrom("graphics", "abline", "axis", "axis.Date", "axis.POSIXct",
            "mtext", "par", "plot", "points", "polygon", "rect", "segments",
            "symbols", "text", "title")
 importFrom("grDevices", "colorRampPalette", "graphics.off", "gray", "grey",
-           "hsv", "pdf", "rainbow")
+           "hsv", "palette", "pdf", "rainbow")
 importFrom("stats", "acf", "aggregate", "approx", "coef", "cor", "cutree",
            "diffinv", "dist", "filter", "hclust", "lm", "median", "na.pass",
            "quantile", "sd", "IQR")

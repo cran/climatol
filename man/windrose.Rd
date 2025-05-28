@@ -11,7 +11,7 @@ maxnsc=8, fnum=4, fint=5, flab=2, ang=-3*pi/16, margin=c(0,0,4,0),
 pal=c('cyan','yellow','orange','red','brown'), ...)
 }
 \arguments{
-  \item{dat}{Data frame with columns DateTime, Wind direction and Wind speed.}
+  \item{dat}{Data frame with columns DateTime (of POSIXct class), Wind direction and Wind speed.}
   \item{cols}{Columns containing DateTime, Wind direction and Wind speed [1:3].}
   \item{code}{Station code.}
   \item{name}{Station name.}

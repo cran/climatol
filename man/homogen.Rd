@@ -8,12 +8,12 @@
 }
 \usage{
 homogen(varcli, anyi, anyf, test='snht', nref=NULL, std=NA, swa=NA,
-ndec=1, niqd=c(4,1), dz.max=.01, dz.min=-dz.max, cumc=NA, wd=NULL, inht=25,
+ndec=1, niqd=c(4,6,1), dz.max=.01, dz.min=-dz.max, cumc=NA, wd=NULL, inht=25,
 sts=5, maxdif=NA, maxite=999, force=FALSE, wz=.001, mindat=NA, onlyQC=FALSE,
 annual=c('mean','sum','total'), x=NULL, ini=NA, na.strings="NA", vmin=NA,
 vmax=NA, hc.method='ward.D2', nclust=300, cutlev=NA, grdcol=grey(.4),
 mapcol=grey(.4), expl=FALSE, metad=FALSE, sufbrk='m', tinc=NA, tz='utc',
-rlemin=NA, rlemax=NA, cex=1.1, uni=NA, raway=TRUE, graphics=TRUE, verb=TRUE,
+rlemin=NA, rlemax=NA, cex=1.1, uni=NA, raway=2, graphics=TRUE, verb=TRUE,
 logf=TRUE, snht1=NA, snht2=NA, gp=NA)
 }
 \arguments{
@@ -36,10 +36,10 @@ in the detection stages, and to 4 in the final series adjustments].}
 application of the detection test [365 terms (one year) for daily data, and 60
 otherwise].}
 \item{ndec}{Number of decimal digits to round the homogenized data [1].}
-\item{niqd}{Number of interquartilic distances to delete big outliers [4] and too long runs of identical values [1]. [Defaults to \code{c(4,1)}]}
+\item{niqd}{Number of interquartilic distances to delete big outliers [4], spikes [6] and too long runs of identical values [1]. [Defaults to \code{c(4,6,1)}]}
 \item{dz.max}{Threshold of outlier tolerance, in standard deviations if greater than one, or as a percentage of data to reject otherwise [0.01].}
 \item{dz.min}{Lower threshold of outlier tolerance if different from \code{dz.max}.}
-\item{cumc}{Code of accumulated missing data.}
+\item{cumc}{Code of accumulated missing daily precipitation.}
 \item{wd}{Distance (in km) at which reference data will weight half of those
 located at zero distance [\code{c(0,0,100)}].}
 \item{inht}{Thresholds for the change in the mean detection tests [25].}
@@ -73,8 +73,7 @@ metadata file [\code{'m'}].}
 \item{rlemax}{Data run lengths will exclude values \code{>= rlemax} in quality control [\code{NA}].}
 \item{cex}{Character expansion factor for graphic labels and titles [1.1].}
 \item{uni}{Units to use in some axis labels [''].}
-\item{raway}{Increase internal distances to reanalysis series to give more
-weight to observed series [\code{TRUE}].}
+\item{raway}{Factor to increase internal distance to reanalysis series to make them weight less than the observed series [\code{2}].}
 \item{graphics}{Output graphics to a PDF file [\code{TRUE}].}
 \item{verb}{Verbosity [\code{TRUE}].}
 \item{logf}{Save console messages to a log file? [\code{TRUE}].}
@@ -144,7 +143,14 @@ calculate only horizontal distances (wz=0).
 \code{vmin} and \code{vmax} are unset by default, but if the variable is found
 to have a skewed probability distribution with a minimum value of zero,
 \code{vmin} will be set to zero. The same will happen if the user sets
-\code{std=2}.
+\code{std=2}. In these cases, fragments with zero mean will be deleted
+because they will be considered as periods of absence of observation confused
+with zero precipitation.
+
+Parameter \code{raway} was introduced after realizing that observational series
+are better references than series derived from reanalysis products. When greater than 1, distances between series involving one lableled as trusted will be added the median value of distances between observational series and then multiplied by this parameter. (Note that if you have labeled any observed series as trusted, this parameter should be set to 1 or any lower value to disable this feature.)
+
+Sometimes daily precipitation series contain a code to indicate days where observations could not be made and precipitation accumulated in the rain gauge.  In these cases you can assign that code to the \code{cumc} parameter, and then \code{homogen} will distribute the accumulated precipitation proportionally to the estimated data before continuing the process.
 
 \code{sufbrk} is only relevant when \code{metad=TRUE}. Its default value
 \code{'m'} is meant to read the file of break-points detected at the monthly
@@ -160,11 +166,13 @@ increasing this parameter too much.
 
 The graphic output file (in PDF format) begins with a first quality control of
 the series, providing box-plots for every series showing (1) the range of their
-values, (2) their increments between successive terms and (3) the length of
-segments with constant data. Too big outliers are deleted at this stage because
-they would compromise the quality of the homogenization and missing data
-filling. During the rest of the process outlier detection and deletion is based
-on spatial differences between neighboring normalized data. (Deleted data which were not errors but due to local phenomena can be restored to the homogenized series with the help of the \code{datrestore} function.)
+values, (2) their second differences and (3) the length of segments with
+constant data. Too big outliers are deleted at this stage because they would
+compromise the quality of the homogenization and missing data filling. During
+the rest of the process outlier detection and deletion is based on spatial
+differences between neighboring normalized data. (Deleted data which were not
+errors but due to local phenomena can be restored to the homogenized series
+with the help of the \code{datrestore} function.)
 
 The following pages offer: (a) a summary of the data availability and frequency
 distribution; (b) a correlogram of the first differences of the series, (c) a
@@ -194,9 +202,9 @@ for climatic mapping, when no a priori knowledge can indicate which of the
 sub-periods will be more representative at the spatial scale of the map).
 
 The processing time can range from seconds (a few monthly series) to many hours
-(hundreds of daily series). If you must process a huge amount of data, you
-should consider splitting your study region into smaller areas to be
-homogenized independently.
+(hundreds of daily series) or days (hundreds of subdaily series). If you must
+process a huge amount of data, you should consider splitting your study region
+into smaller areas and homogenize their series independently.
 }
 \value{
 This function does not return any value, its results being saved to files
@@ -263,8 +271,9 @@ guide, links to videos, etc).
 wd <- tempdir()
 wd0 <- setwd(wd)
 data(climatol_data)
-write.table(Temp.est,'Temp_1961-2005.est',row.names=FALSE,col.names=FALSE)
+Temp.dat[320:340,4] <- NA #remove some wrong data 
 write(Temp.dat,'Temp_1961-2005.dat')
+write.table(Temp.est,'Temp_1961-2005.est',row.names=FALSE,col.names=FALSE)
 
 ## Now run the example:
 homogen('Temp',1961,2005)

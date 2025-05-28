@@ -26,7 +26,7 @@ tz='utc')
   }
   \item{namax}{Maximum percentage of missing data in any month to compute its
   monthly value. (30 by default)}
-  \item{x}{Time vector. If not provided, it will be built as dates (or date-time for sub-daily data) beginning January 1st of the initial year. The user must provide if data are taken at irregular intervals or are not beginning the first of January.}
+  \item{x}{Time vector. If not provided, it will be built as dates (or date-time for sub-daily data) beginning January 1st of the initial year. The user must provide if data are taken at irregular intervals or they don't start on January 1st.}
   \item{na.strings}{Missing data code in the original daily data. (\code{NA} by default.)}
   \item{tz}{Time zone (\code{'utc'} by default). Only relevant for subdaily data.}
 }
@@ -34,6 +34,7 @@ tz='utc')
 Data are read from files \file{VRB_YEAR-YEAR.dat} and
 \file{VRB_YEAR-YEAR.est}, and output monthly data will be saved to
 files with the same names but with the suffix \code{-m} appended to the name of the variable.
+Series with less than 12 monthly data will be removed from the output monthly series.
 }
 \seealso{\code{\link{homogen}}, \code{\link{dahstat}}, \code{\link{dahgrid}}}
 \examples{

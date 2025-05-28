@@ -79,10 +79,11 @@ wd0 <- setwd(wd)
 file.copy(exampleFiles('Temp_1991-2000.rda'),'.')
 
 ## Now run the example:
-## (very coarse grid (3x2 points) to run in less than the 10 seconds CRAN limit)
+## (very coarse grid (3x2 points) to run in less than the 5 seconds CRAN limit)
 grd <- expand.grid(x=seq(-2.8,-2.4,.2),y=seq(38.86,39.06,.2))
 sp::coordinates(grd) <- ~ x+y
-dahgrid('Temp',1991,2000,grid=grd)
+# (generate the grid for 1996-2000 only, again to run in less than 5 seconds)
+dahgrid('Temp',1991,2000,1996,2000,grid=grd)
 
 ## Return to user's working directory:
 setwd(wd0)

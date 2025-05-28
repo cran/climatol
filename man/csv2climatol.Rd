@@ -34,7 +34,12 @@
 \details{
   If \code{datacol} holds  4 (or 5) values, dates are expected to appear as
   year, month (and days) in separate columns. Otherwise, dates will be provided
-  as character strings (see parameter \code{dateformat}).
+  as character strings (see parameter \code{dateformat}). Subdaily data may
+  provide dates/times in POSIX format (e.g.:
+  \code{dateformat='\%Y-\%m-\%d \%H:\%M:\%S'}).
+  Alternatively, hourly data does not need to specify minutes and seconds, as
+  in \code{'\%Y\%m\%d\%H'}. (Note that this function only works if data are
+  taken at regular intervals.)
   Station codes, names and coordinates can go in a separate file
   \code{stnfile}. At least coordinates and station codes must be present in
   either \code{csvfile} or \code{stnfile}. Put a zero for any inexistent

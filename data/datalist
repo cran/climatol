@@ -1,1 +1,1 @@
-climatol_data: AWS_1day AWS_1year datcli p064.df p082.df p084.df prec10min RR3st SIstations Tav Temp.dat Temp.est TN3st TX3st
+climatol_data: AWS_1day AWS_1year RR3st SIstations TN3st TX3st Tav Temp.dat Temp.est datcli p064.df p082.df p084.df prec10min

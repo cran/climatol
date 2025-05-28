@@ -1,8 +1,8 @@
 \name{rclimdex2climatol}
 \alias{rclimdex2climatol}
-\title{Convert RClimDex daily data files to \code{climatol} input format}
+\title{Convert RClimDEX/RClimPACT daily data files to \code{climatol} input format}
 \description{
-  This function can be useful to prepare the \code{climatol} input files when the user have their daily data in RClimDex format.
+  This function can be useful to prepare the \code{climatol} input files when the user have their daily data in RClimDEX/RClimPACT format.
 }
 \usage{
 rclimdex2climatol(stfile, stcol=1:5, kvar, chrcod=c(6,10), sep='', anyi=NA,
@@ -22,12 +22,12 @@ anyf=NA, mis=-99.9, mindat=365, header=TRUE)
   \item{header}{Do files have a header line? \code{TRUE} by default).}
 }
 \details{
-Users of the RClimDex program can convert their daily data files to the
-\code{climatol} format. All files listed in \code{stfile} will be read, and the
-selected variable (precipitation, maximum or minimum temperature) will be
-stored in a unique \code{*.dat} file, with its companion \code{*.est} station
-file.  Therefore, if you want to convert all three variables, you must run this
-function three times.
+Users of the RClimDEX or RClimPACT/RClimPACT2 programs can convert their daily
+data files to the \code{climatol} format. All files listed in \code{stfile}
+will be read, and the selected variable (precipitation, maximum or minimum
+temperature) will be stored in a unique \code{*.dat} file, with its companion
+\code{*.est} station file.  Therefore, if you want to convert all three
+variables, you must run this function three times.
 
 Coordinates must be given in degrees with decimals, using the minus sign for sourthern latitudes and western longitudes.
 }
