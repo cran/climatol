@@ -1,6 +1,6 @@
 Package: climatol
-Version: 4.2-0
-Date: 2025-05-28
+Version: 4.3-0
+Date: 2025-10-12
 Title: Climate Tools (Series Homogenization and Derived Products)
 Authors@R: person(given = c("Jose", "A."),
                     family = "Guijarro",
@@ -16,6 +16,6 @@ Description: Functions for the quality control, homogenization and missing data 
 License: GPL (>= 3)
 URL: https://climatol.eu
 NeedsCompilation: no
-Packaged: 2025-05-28 19:26:08 UTC; jag
+Packaged: 2025-10-12 18:22:34 UTC; jag
 Repository: CRAN
-Date/Publication: 2025-05-28 19:50:11 UTC
+Date/Publication: 2025-10-12 19:00:02 UTC

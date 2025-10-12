@@ -71,6 +71,7 @@ obsonly=TRUE, nmax=Inf)
 }
 \seealso{\code{\link{homogen}}}
 \examples{
+\dontrun{
 ## Set a temporal working directory and write input files:
 wd <- tempdir()
 wd0 <- setwd(wd)
@@ -90,6 +91,7 @@ setwd(wd0)
 
 ## Input and output files can be found in directory:
 print(wd)
+}
 }
 \keyword{datagen}
 

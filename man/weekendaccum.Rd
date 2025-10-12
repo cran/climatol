@@ -27,8 +27,8 @@
   The test is applied station by station and year by year. When the difference
   between the frequency of zeroes of any week day and the mean of 1, 2 or 3
   preceding days is significant, those preceding days will be assigned the
-  chosen cumulative code \code{cumc} (-1 by default) if and only if all the
-  precipitation of those preceding days is zero.
+  chosen cumulative code \code{cumc} (-1 by default) if and only if the
+  precipitation of all those preceding days is zero.
 
   In this way, ulterior application of the \code{homogen} function with the
   same cumulative code will distribute the accumulated precipitation into

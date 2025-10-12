@@ -12,7 +12,7 @@
 }
 \arguments{
   \item{csvfile}{name of the CSV file containing the data.}
-  \item{datacol}{column(s) holding station codes, dates and data.}
+  \item{datacol}{columns holding station codes, dates and data.}
   \item{stnfile}{name of the CSV file containing station codes, names and
      coordinates (if these data are not in the csvfile).}
   \item{stncol}{columns holding longitudes, latitudes, elevations and station
@@ -33,7 +33,7 @@
 }
 \details{
   If \code{datacol} holds  4 (or 5) values, dates are expected to appear as
-  year, month (and days) in separate columns. Otherwise, dates will be provided
+  year, month (and day) in separate columns. Otherwise, dates will be provided
   as character strings (see parameter \code{dateformat}). Subdaily data may
   provide dates/times in POSIX format (e.g.:
   \code{dateformat='\%Y-\%m-\%d \%H:\%M:\%S'}).

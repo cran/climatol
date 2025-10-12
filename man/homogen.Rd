@@ -9,9 +9,9 @@
 \usage{
 homogen(varcli, anyi, anyf, test='snht', nref=NULL, std=NA, swa=NA,
 ndec=1, niqd=c(4,6,1), dz.max=.01, dz.min=-dz.max, cumc=NA, wd=NULL, inht=25,
-sts=5, maxdif=NA, maxite=999, force=FALSE, wz=.001, mindat=NA, onlyQC=FALSE,
-annual=c('mean','sum','total'), x=NULL, ini=NA, na.strings="NA", vmin=NA,
-vmax=NA, hc.method='ward.D2', nclust=300, cutlev=NA, grdcol=grey(.4),
+sts=5, tol=.02, maxdif=NA, maxite=999, force=FALSE, wz=.001, mindat=NA,
+onlyQC=FALSE, annual=c('mean','sum','total'), x=NULL, ini=NA, na.strings="NA",
+vmin=NA, vmax=NA, hc.method='ward.D2', nclust=300, cutlev=NA, grdcol=grey(.4),
 mapcol=grey(.4), expl=FALSE, metad=FALSE, sufbrk='m', tinc=NA, tz='utc',
 rlemin=NA, rlemax=NA, cex=1.1, uni=NA, raway=2, graphics=TRUE, verb=TRUE,
 logf=TRUE, snht1=NA, snht2=NA, gp=NA)
@@ -44,6 +44,8 @@ otherwise].}
 located at zero distance [\code{c(0,0,100)}].}
 \item{inht}{Thresholds for the change in the mean detection tests [25].}
 \item{sts}{Series tail size (no. of terms) not tested for inhomogeneities [5].}
+\item{tol}{Tolerance factor to split several series at a time. The default is 0.02, meaning that a 2\% will be allowed for every reference data. (E.g.: if the m
+aximum SNHT test value in a series is 30 and 10 references were used to compute the anomalies, the series will be split if the maximum test of the reference series is lower than 30*(1+0.02*10)=36. Set \code{tol=0} to disable further splits when any reference series has already been split at the same iteration).}
 \item{maxdif}{Maximum data difference from previous iteration [\code{ndec/2}].}
 \item{maxite}{Maximum number of iterations to compute means of the series
 [999].}
@@ -69,8 +71,8 @@ series [\code{swa/2} for daily series or 12 terms otherwise].}
 metadata file [\code{'m'}].}
 \item{tinc}{Time increment between data [\code{NA}].}
 \item{tz}{Time zone [\code{'utc'}]. Only relevant for subdaily data.}
-\item{rlemin}{Data run lengths will exclude values \code{<= rlemin} in quality control [\code{NA}].}
-\item{rlemax}{Data run lengths will exclude values \code{>= rlemax} in quality control [\code{NA}].}
+\item{rlemin}{Data run lengths will exclude values \code{< rlemin} in quality control [\code{NA}].}
+\item{rlemax}{Data run lengths will exclude values \code{> rlemax} in quality control [\code{NA}].}
 \item{cex}{Character expansion factor for graphic labels and titles [1.1].}
 \item{uni}{Units to use in some axis labels [''].}
 \item{raway}{Factor to increase internal distance to reanalysis series to make them weight less than the observed series [\code{2}].}

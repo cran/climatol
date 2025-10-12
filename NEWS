@@ -1,6 +1,18 @@
 HISTORY OF CHANGES IN climatol
 
-2025-05-28, version 4.2.0:
+2025-10-12, version 4.3-0
+- homogen: Removed code added to version 4.0 intended to lower the process time
+    but was worsening the reconstruction of short series.
+  - Removed inconsistency which did not allow to ouput graphics when using cumc
+    and onlyQC together.
+  - Fixed error when stage 1 was skipped.
+  - Old parameter tol reintroduced to allow different tolerance to simultaneous
+    splits in the series.
+- rclimdex2climatol: readapted to the last RClimDEX/RClimPACT files format.
+- rean2climatol: new function to append a series from reanalysis to the input
+  files.
+
+2025-05-28, version 4.2-0:
 - csv2climatol: Now enabled to process subdaily data.
 - dahstat: Added option stat='mseries' to output homgenized monthly aggregates
   to a CSV file.
@@ -123,7 +135,7 @@ define the wind speed classes.
 
 2011-06-05, version 2.1:
 - Corrected bugs in distance and trend computations and an improved convergence
-  in the missing data recomputation yiel much better homogenization results.
+  in the missing data recomputation yield much better homogenization results.
 
 2011-01-25, version 2.0:
 - Too many to be explained here. The main novelty is the homogen() function,
