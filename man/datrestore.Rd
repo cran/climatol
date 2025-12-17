@@ -2,7 +2,7 @@
 \alias{datrestore}
 \title{Rename homogen's output files}
 \description{
-  This function restores some deleted outliers into the dah matrix of the \code{*.rda} output file.
+  This function restores true deleted outliers into the dah matrix in the \code{*.rda} output file.
 }
 \usage{
 datrestore(varcli, anyi, anyf, QCout=FALSE)
@@ -15,8 +15,10 @@ datrestore(varcli, anyi, anyf, QCout=FALSE)
   \item{QCout}{Set this parameter to \code{TRUE} to read the selected outliers to be restored from the \code{*-QC*_out.csv} output by a previous run of \code{homogen(..., onlyQC=TRUE)}.}
 }
 \details{
-  When the user checks the list of outliers in the output file \code{*_out.csv}, true extreme values (or sequences of identical values) that have been deleted can be restored by changing their \code{deleted} field to negative.
-  This accepted values will be restored in the \code{dah} matrix of homogenized series contained in the \code{*.rda} file output by the \code{homogen} function, but only in the series reconstructed from the last homogeneous subperiod.
+  When the user checks the list of outliers in the output file
+  \code{*_out.csv}, true extreme values that have been deleted can be restored
+  in the \code{dah} matrix of homogenized series contained in the \code{*.rda}
+  file output by changing their \code{Deleted} field to negative.
 }
 \seealso{\code{\link{homogen}}}
 \examples{

@@ -2,7 +2,7 @@
 #Author: Jose A. Guijarro. Licence: GPL >= 3.0
 
 
-climatol.version <- '4.3-0'
+climatol.version <- '4.3-2a'
 #- cerrar.- Close output files.
 cerrar <- function(graphics=TRUE) {
   if(graphics) graphics.off()
@@ -313,7 +313,7 @@ rclimdex2climatol <- function(stfile, kvar, stcol=1:5, sep='', anyi=NA,
   varcli=c('RR','TX','TN')[kvar] #(short) name of the variable
   cat('\n',"Creating",varcli,"Climatol input files from RClimDEX files",'...:\n\n')
   st <- read.table(stfile,sep=sep,header=header,as.is=TRUE) #stations
-  ne <- nrow(st)
+  ne <- nrow(st); codes <- character()
   if(is.na(anyi) | is.na(anyf)) { #check the time period of the data:
     inidate <- as.Date('3000-12-31'); enddate <- as.Date('0001-01-01')
     for(i in 1:ne) { #for every station
@@ -346,7 +346,7 @@ rclimdex2climatol <- function(stfile, kvar, stcol=1:5, sep='', anyi=NA,
     k <- regexpr('\\.', datfile)
     if(k==-1) { code <- datfile; datfile <- paste0(datfile,'.txt') }
     else code <- substr(datfile,1,k-1)
-    cat(stfile,'\n')
+    cat(code,'\n'); codes <- c(codes,code) #codes list
     d <- read.table(datfile,header=header,sep=sep) #data
     ddates <- as.Date(sprintf('%d-%02d-%02d',d[,1],d[,2],d[,3]))
     kd <- match(ddates,dates) #match data dates with the dates vector
@@ -376,7 +376,7 @@ rclimdex2climatol <- function(stfile, kvar, stcol=1:5, sep='', anyi=NA,
     cat("  goes from",format(dates[ki]),"to",format(dates[kf]),'\n')
   }
   #write stations file:
-  df <- data.frame(st[,stcol[c(3,2,4)]],code,st[,stcol[5]])
+  df <- data.frame(st[,stcol[c(3,2,4)]],codes,st[,stcol[5]])
   fich <- sprintf('%s_%s-%s.est',varcli,anyi,anyf)
   write.table(df,fich,row.names=FALSE,col.names=FALSE)
   cat("Station coordinates and names saved to file",fich,'\n\n')
@@ -1528,14 +1528,14 @@ verb=TRUE, logf=TRUE, snht1=NA, snht2=NA, gp=NA) {
       nge <- nge-1
     }
   }
-  #detect too anomalous data (to be deleted to avoid their use as references):
+  #- Initial QC: delete too anomalous data to avoid their use as references
   #exclude dat<rlemin from the analysis:
   dat.0 <- dat; if(!is.na(rlemin)) dat.0[dat<rlemin] <- NA
   if(skewed) {
     da3 <- r3(dat.0); da3[dat==0] <- NA #cubic root of data without zeros
-    bp <- boxplot(da3,range=niqd[1],plot=FALSE) #big outliers of the skewed series
+    bp <- boxplot(da3,range=niqd[1],plot=FALSE) #big outliers in the skewed series
   } else {
-    bp <- boxplot(dat.0,range=niqd[1],plot=FALSE) #big outliers of the series
+    bp <- boxplot(dat.0,range=niqd[1],plot=FALSE) #big outliers in the series
     da3 <- dat.0
   }
   nout <- length(bp$out)
@@ -1675,7 +1675,7 @@ verb=TRUE, logf=TRUE, snht1=NA, snht2=NA, gp=NA) {
     for(k in 1:nsdel) dat[rdel[[k]],sdel[k]] <- NA
     deld <- deld + nout
   }
-  #------------- End of initial quality control -----------------------
+  #------------- End of initial QC ------------------------------------
   dat.o <- dat #original data to be stored in the final *.rda file (QC fixed)
   if(nd<100) lw=3 #width of the bars of anomalies
   else if(nd<300) lw=2
@@ -1949,6 +1949,9 @@ verb=TRUE, logf=TRUE, snht1=NA, snht2=NA, gp=NA) {
           z <- data.frame(est.i[iest[i],1:3],paste(est.i[iest[i],4],'-',1+nsp[iest[i]],sep=''),paste(est.i[iest[i],5],'-',1+nsp[iest[i]],sep=''))
           names(z) <- names(est.i)
           est.c <- rbind(est.c,z)
+          #assign the same means (and std. devs.?) to the new fragment:
+          dat.m <- c(dat.m,dat.m[i])
+          if(std==3) dat.s <- c(dat.s,dat.s[i])
         }
       }
       cat('\n\n',"Update number of series:",ne,'+',nn,'= ')
@@ -2029,6 +2032,7 @@ verb=TRUE, logf=TRUE, snht1=NA, snht2=NA, gp=NA) {
         stop("Cannot continue! Shorten the study period, add series with data in the empty terms, or be more tolerant to outliers.")
       }
       #- normalize dat.d (obtain dat.z)
+save(dat.d,dat.z,dat.m, file='aux0.Rdat')
       
       switch(std,
         for(ke in 1:ne) dat.z[,ke] <- dat.d[,ke]-dat.m[ke], #std=1
@@ -2054,7 +2058,7 @@ verb=TRUE, logf=TRUE, snht1=NA, snht2=NA, gp=NA) {
       maxddif0 <- 99999. #initialize the maximum data difference
       repeat {
         ite <- ite+1
-        #- ite+=1 and estimate series (dat.e|c) from their neighbors
+        #- ite+1 and estimate series (dat.e|c) from their neighbors
         #  update used, nrefs and mindist:
         for(i in 1:ne) { #for every station
           if(refhom[i]) next #skip trusted series
@@ -2771,7 +2775,7 @@ outrename <- function(varcli, anyi, anyf, suffix, restore=FALSE) {
   return(invisible())
 }
 
-#- datrestore.- Restore some deleted outliers into the dah matrix of the *.rda output file.
+#- datrestore.- Restore outliers with Deleted<0 into the homogenized series of the *.rda output file.
 datrestore <- function(varcli, anyi, anyf, QCout=FALSE) {
 #varcli: Short name of the studied climatic variable.
 #anyi: Initial year of the study period.
@@ -2782,25 +2786,25 @@ datrestore <- function(varcli, anyi, anyf, QCout=FALSE) {
   frda <- sprintf('%s.rda',fbn) #file of homogenization results (*.rda)
   obj <- load(frda) #load homogenization results
   #read list of outliers to restore:
-  if(!QCout) dout <- read.csv(sprintf('%s_out.csv',fbn),as.is=TRUE) 
-  else dout <- read.csv(sprintf('%s-QC_%d-%d_out.csv',varcli,anyi,anyf),as.is=TRUE)
-  dout <- dout[dout[,6]<0,] #keep outliers to be restored only
+  if(!QCout) dout <- read.csv(sprintf('%s_out.csv',fbn),as.is=TRUE)
+  else dout <- read.csv(sprintf('%s-QC_%d-%d_out.csv',varcli,anyi,anyf),
+    as.is=TRUE)
+  dout <- dout[!is.na(dout[,5]) & dout[,6]<0,] #keep outliers to be restored
   cat('\n')
-  if(nrow(dout)==0) { cat("No deleted data to restore!"); return() }
+  if(nrow(dout)==0) { cat("No deleted data to restore!"); return(invisible()) }
   if(inherits(x,'Date')) posix <- FALSE else posix <- TRUE
-  cat("Restoring reciprocal outliers (Deleted<0) into the homogenized series:",'\n')
+  cat("Restoring outliers with Deleted<0 in homogenized series:",'\n')
   for(k in 1:nrow(dout)) {
     if(posix) i <- which(x==as.POSIXct(dout[k,3])) #time index
     else i <- which(x==as.Date(dout[k,2])) #time index
-    j <- which(est.c[,4]==dout[k,1]) #station index
     i2 <- i-dout[k,6]-1 #final time index for identical data runs
-    cat(dout[k,1],dout[k,2],':',dah[i:i2,j],' -> ',dout[k,3],'\n')
-    dah[i:i2,j] <- dout[k,3]
+    j <- which(est.c[,4]==dout[k,1]) #station index
+    j2 <- which(unsufix(est.c[,4])==est.c[j,4]) #series indices of station j
+    cat(dout[k,1],dout[k,2],':',-dout[k,6],dout[k,3],"restored",'\n')
+    dah[i:i2,j2] <- dout[k,3]
   }
   save(list=obj, file=frda) #save updated *.rda file
-  cat('\n',"Homogenized series updated into the file",frda,'\n')
-  cat("(Note that selected outliers have been restored only in",'\n')
-  cat(" the series homogenized from the last homogeneous subperiod)",'\n')
+  cat("Homogenized series updated in the file",frda,'\n')
 }  
 
 #- QCthresholds.- Obtain monthly thresholds for Quality Control alerts.
@@ -2973,98 +2977,126 @@ na.strings=NA) {
 #- unsufix.- Remove numeric sufixes from station codes.
 unsufix <- function(str) sapply(strsplit(str,'-'), function(x) x[1])
 
-#- weekendaccum.- Check for possible undeclared daily precipitation weekend accumulations and assign an accumulation code if necessery to the false zeroes.
-weekendaccum <- function(varcli,anyi,anyf,na.strings='NA',cumc=-1,wdsl=1) {
+#- weekendaccum.- Check for possible undeclared daily precipitation weekend accumulations and assign an accumulation code to the false zeros.
+weekendaccum <- function(varcli,anyi,anyf,na.strings='NA',cumc=-1,wdsl=.01,
+  expl=TRUE) {
 #varcli: Short name of the studied climatic variable
 #anyi: Initial year
 #anyf: Final year
-#cumc: code of accumulated missing data.
-#wdsl: weekday significance level (in %) to detect 1 to 3 false consecutive
-# zeroes followed by an accumulation of precipitation. Only relevant for daily
-# precipitation. Set a value between 0.1 and 10 to enable this test,
-# equivalent to significant levels between 0.001 and 0.1.
+#cumc: Code of accumulated missing data.
+#wdsl: Weekday significance level (in %) to detect 1 to 3 false consecutive
+# zeros followed by an accumulation of precipitation. Only relevant for daily
+# precipitation. Defaults to 0.01, but can be set between 0.001 and 1, meaning
+# significant levels between 0.00001 and 0.01.
+#expl: Exploratory mode. TRUE by default, not modifying the original files.
+# Set to FALSE to change suspect zeros to the cummulative code cumc. 
 #------------------------------------------------------------------
-  if(wdsl<.1 | wdsl>10) stop("Parameter wdsl needs a value between 0.1 and 10")
+  if(wdsl<.001 | wdsl>10) stop("Parameter wdsl must be set between 0.001 and 10")
+  sl <- wdsl/100 #requested significant level
   fbas <- sprintf('%s_%d-%d',varcli,anyi,anyf) #file basename
-  flog <- sprintf('%s-wkn.txt',fbas) #log file
+  flog <- sprintf('%s_wkn.txt',fbas) #log file
+  #function of quantiles of differences to 1, 2 and 3 previous days:
+  Qd <- function(x,y) -2.010+4.905*x+2.054e-02*log(x)+3.852e-01*log(y)-
+    11.65*x^2+2.534e-05*y^2-4.487e-02*x*y
   #- read input data
   z <- read.dat(varcli,anyi,anyf,x=NULL,ini=NA,tinc=NA,na.strings,tz='utc')
   est.c <- z$est.c; dat <- z$dat; na <- z$na; nd <- z$nd; ne <- z$ne; x <- z$x
   nm <- z$nm; ini <- z$ini; tinc <- z$tinc; acomp <- z$acomp
   if(unique(diff(x)) != 1)
     stop("This funtion is intended to be applied to DAILY PRECIPITATION only!")
+  #maximum (in absolute value) zero frequency differences:
+  maxdif <- array(NA,c(na,3,ne),dimnames=list(anyi:anyf,c('1 day','2 days',
+    '3 days'),est.c[,4]))
   #- check for even distribution in the week days
-  #quantiles of differences with 1 to 3 previous terms depending on sig. level:
-  qd <- rep(0,3)
-  qd[1] <- -0.718275+0.011355*wdsl+0.091394*log(wdsl)
-  qd[2] <- -0.620828+0.009160*wdsl+0.081216*log(wdsl)
-  qd[3] <- -0.583525+0.008634*wdsl+0.075586*log(wdsl)
-  qdr <- round(qd,3)
   wkd  <- as.integer(strftime(x,'%w')) #weekday: 0(Sunday) to 6
   year <- as.integer(strftime(x,'%Y'))
   #function to get short names of the weekdays 0(Sunday) to 6
   wdf <- function(x) strftime(as.Date(x,origin='2000-01-02'),'%a')
-  dat0 <- dat==0; dat0[is.na(dat0)] <- FALSE #zeroes in data matrix
+  dat0 <- dat==0; dat0[is.na(dat0)] <- FALSE #zeros in data matrix
   zm <- matrix(nrow=na,ncol=10) #initialize matrix of 0 precipitation counts
   no <- aggregate(!is.na(dat),list(year),sum) #no. of observations per year,stn
   z2 <- aggregate(dat0,list(year,wkd),sum,na.rm=TRUE)
   z2[,1] <- z2[,1]-anyi+1; z2[,2] <- z2[,2]+4 #z2[,2] ranges 4(Sunday) to 10
-  nstac <- 0 #no. of stations with false weekend zeroes
+  nstac <- 0 #no. of stations with false weekend zeros
   #open log file and write header:
   sink(flog,split=TRUE)
   cat("========= Output of the weekendaccum function ================",'\n\n')
-  cat("Checking for weekend effect in",fbas,"data",':\n\n')
+  cat("Checking for weekend effect in",fbas,"data with",'wdsl =',wdsl,':\n\n')
   for(j in 1:ne) { #for each station:
-    cat('---------',"Station",j,paste0('(',est.c[j,4],'): '))
-    zm[as.matrix(z2[,1:2])] <- z2[,j+2] #no. of zeroes in na x 10wdays matrix
+    zst <- FALSE #flag of output for the current station
+    zm[as.matrix(z2[,1:2])] <- z2[,j+2] #no. of zeros in na x 10wdays matrix
     zm[no[,j+1]<100,] <- NA #delete counts with less than 100 observations/year
     zs <- apply(zm[,4:10],1,sum) #total 0 counts per year
     zm[,4:10] <- zm[,4:10]*7/zs # rate of 0 counts per day each year
     zm[,1:3] <- zm[,8:10] #repeat last 3 weekdays at the beginning
-    ncum <- 0 #no. of zeroes suspect of accumulation
+    ncum <- 0 #no. of zeros suspect of accumulation
     for(p in 1:na) { #for each year
+      zap <- zs[p]*100/365 #zero annual percentage
+      qd <- Qd(sl,zap); qdr <- round(qd,3) #quantile threshold & id. rounded
       if(is.na(sum(zm[p,]))) next #not enough data
       zn <- rep(9,3) #initialize minimum values
       kw <- rep(NA,3) #initialize days of maximum difference
       for(q in 4:10) { #for weekdays Sunday to Saturday:
-        for(k in 1:3) { #maximum difference with 1, 2 or 3 previous days:
+        for(k in 1:3) { #max. difference with mean of 1, 2 and 3 previous days:
           zd <- zm[p,q]-mean(zm[p,q-1:k]) #difference with k previous days
           if(zd < zn[k]) { zn[k] <- zd; kw[k] <- q-3 } #kw ranges 1(Sunday):7
         }
       }
+      maxdif[p,,j] <- zn #save absolute maximum difference of frequencies
       kd <- which.min(zn-qd) #no. of days with most significant difference
-      if(zn[kd] < qd[kd]) { #false zeroes detected in kd days before day kw:
-        if(kd==1) cat(p+anyi-1,':',1,"day difference ",round(zn[kd],3),'<',
-          qdr[kd],' (',wdf(kw[kd]-kd-1),'<-',cumc,')\n')
-        else cat(p+anyi-1,':',kd,"days difference",round(zn[kd],3),'<',
-          qdr[kd],paste0(' (',wdf(kw[kd]-kd-1),'-',wdf(kw[kd]-2),' <- ',cumc,')\n'))
+      #if differences are almost equal, choose the highest no. of days:
+      while(kd<3) if(abs(zn[kd]-zn[kd+1])<.001) kd <- kd+1 else break
+      if(zn[kd] < qd) { #false zeros detected in kd days before day kw:
+        if(!zst) {
+          cat('---------',"Station",j,paste0('(',est.c[j,4],'):\n'))
+          zst <- TRUE
+        }
+        if(kd==1) cat(p+anyi-1,':',1,"day",paste0('(',wdf(kw[kd]-kd-1),')'),
+          "difference",round(zn[kd],3),'<',qdr,'\n')
+        else cat(p+anyi-1,':',kd,"days",paste0('(',wdf(kw[kd]-kd-1),'-',
+          wdf(kw[kd]-2),')'),"difference",round(zn[kd],3),'<',qdr,'\n')
         k <- which(year==p+anyi-1 & kw[kd]==wkd+1) #terms of year p and day kw
         if(p==1) k <- k[k>kd] #avoid the use of terms out of range
-        for(kk in k) {
-          kn <- kk-1:kd
-          if(sum(dat0[kn,j])==kd) { #all kd previous days must have zero precip.
-            ncum <- ncum+kd #no. of zeroes suspect of accumulation
-            dat[kn,j] <- cumc #assign to them the accumulation code
+        for(kk in k) { #for every potential accumulation
+          kn <- kk-1:kd #previous days
+          #if all kd are zeros and kk is not zero, assign cumc to all kd:
+          if(sum(dat0[kn,j])==kd & !dat0[kk,j]) {
+            ncum <- ncum+kd #no. of zeros suspect of accumulation
+            dat[kn,j] <- cumc #assign the accumulation code to them
           }
         }
       }
     }
     if(ncum>0) {
       nstac <- nstac+1
-      cat(ncum,"dates with zero precipitation have been assigned code",cumc,'\n')
-    } else cat("No weekend effect detected in this station",'\n')
+      if(expl) cat(ncum,"dates with suspect zero precipitation",'\n')
+      else cat(ncum,"dates with zero precipitation have been assigned code",cumc,'\n')
+    }
   }
+  cat('\n')
   if(nstac>0) {
-    #keep original data as *-wkn_* and rewrite data with assigned cumc:
-    file.rename(sprintf('%s.dat',fbas),sprintf('%s-wkn_%d-%d.dat',varcli,anyi,anyf))
-    file.copy(sprintf('%s.est',fbas),sprintf('%s-wkn_%d-%d.est',varcli,anyi,anyf))
-    cat('\n',"Original files have been renamed to",sprintf('%s-wkn_%d-%d.dat',varcli,anyi,anyf),'\n')
-    if(length(dat)>99999) cat("Rewriting the data file. This make take some time",'...')
-    write(dat,sprintf('%s.dat',fbas))
-    cat(" Data file with assigned cumc=",cumc,"has been rewritten",'\n\n')
-  } else cat('\n',"No weekend false zeroes detected in file",sprintf('%s.dat',fbas),'\n\n')
+    if(expl==TRUE) {
+      cat("No changes have been made to the original files in exploratory mode.",'\n')
+      cat("Rerun the process with",'expl=FALSE',"to change suspect zeros with the",'cumc',"code.",'\n')
+    } else { #keep original data as *-wkn_* and rewrite data with assigned cumc:
+      file.rename(sprintf('%s.dat',fbas),sprintf('%s-wkn_%d-%d.dat',
+        varcli,anyi,anyf))
+      file.copy(sprintf('%s.est',fbas),sprintf('%s-wkn_%d-%d.est',
+        varcli,anyi,anyf))
+      cat('\n',"Original files have been renamed to",
+        sprintf('%s-wkn_%d-%d.dat',varcli,anyi,anyf),'\n')
+      if(length(dat)>99999) cat("Rewriting the data file. This make take some time",'...')
+      write(dat,sprintf('%s.dat',fbas))
+      cat(" Data file with assigned cumc=",cumc,"has been rewritten",'\n\n')
+    }
+  } else cat('\n',"No weekend false zeros detected in file",sprintf('%s.dat',fbas),'\n\n')
   while (sink.number()>0) sink() #close log file(s)
-  cat("The output of this process has been saved to file",flog,'\n\n')
+  cat('\n')
+  cat("The output of this process has been saved to file",flog,'\n')
+  fRdat <- sprintf('%s_%d-%d_wkn.Rdat',varcli,anyi,anyf)
+  save(maxdif, file=fRdat)
+  cat("and most negative differences",'(maxdif)',"can be loaded with:",
+  '\n',paste0('load("',fRdat,'")\n\n'))
 }
 
 #- snht.- Maximum Standard Normal Homogeneity Test (allowing missing data).

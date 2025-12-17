@@ -1,7 +1,7 @@
-85a0420a18bb9ab7fe860202641c0296 *DESCRIPTION
+5c839a0a1357c1a0449a23e5e70f3fa4 *DESCRIPTION
 a645cfcec38353f841150d7db3ea23f4 *NAMESPACE
-dc55a0d32cfe1e865091872eb1f88b34 *NEWS
-4fa3d838303ebf150f7359bab6046183 *R/clihomog.R
+282468e217bd66cdab30ee9741cd71e0 *NEWS
+5bcda75ba933cbdab0e15c15105a98c1 *R/clihomog.R
 64ab56b527ac6ce5a008037a7d70a54a *R/clitools.R
 d92a7e2793348b230c49322cb184cf66 *data/climatol_data.rda
 16d2b45e0b2120cbd8c8d9edddd57295 *data/datalist
@@ -26,7 +26,7 @@ d6b1025a1306612e4b4d2103ad71e94c *man/csv2climatol.Rd
 6b764abac39bc44b94a9cefba349b83f *man/dahgrid.Rd
 7e6f490119e58d334bbe871f6874f16a *man/dahstat.Rd
 f7d416b40fcb053a4fd6daa14cb14c20 *man/daily2climatol.Rd
-a56dd3e36d4787c3c6b8834b6455b1c6 *man/datrestore.Rd
+a69d6dd4d8e73c995e9699a33d9b39cc *man/datrestore.Rd
 0eba554e12a6f3ad100427af6caa6633 *man/datsubset.Rd
 b6066d79bd522ab6e1c9e4b41c464efc *man/db2dat.Rd
 53be60aad6a68f1a1ad4984f36457c57 *man/dd2m.Rd
@@ -37,10 +37,10 @@ f7de6b374acf6ba39b0e7081490ce89c *man/fix.sunshine.Rd
 55ac131afa0f2a220923a8f423eaf110 *man/homogen.Rd
 e2242a9732289a3270fd9135f1db9873 *man/meteogram.Rd
 d81cccebac0ed4beb6d83d223ab1c20d *man/outrename.Rd
-d21b3b56112fd23d499d6a49d8750a91 *man/rclimdex2climatol.Rd
+843a0a670afe6f51b9edc7e968f29621 *man/rclimdex2climatol.Rd
 756b23c985339aff056313b001d720a1 *man/rean2climatol.Rd
 0d0ecc8e9a72704d37ba99a79643c125 *man/runtnd.Rd
 f176dca380e6c08335ded0d3189d97a0 *man/sef2climatol.Rd
-f1bc802a8379e1386db66eacafafb1a3 *man/weekendaccum.Rd
+067d2a615ade2cd8455317f7a81d5ac2 *man/weekendaccum.Rd
 d269544d8120bdf755c4979ce42ec7e4 *man/windrose.Rd
 508175e9492a9c1f57eea483b00ad7fe *man/xls2csv.Rd

@@ -9,9 +9,9 @@ rclimdex2climatol(stfile, kvar, stcol=1:5, sep='', anyi=NA, anyf=NA, mis=-99.9,
 mindat=365, header=TRUE)
 }
 \arguments{
-  \item{stfile}{Name of the file with the list of data file names and station coordinates, codes and names.}  
+  \item{stfile}{Name of the file containing the list of data file names (or station codes), station coordinates and names.}  
   \item{kvar}{RClimDex variable to extract: 1 (RR), 2 (TX), 3 (TN).}
-  \item{stcol}{Columns in \code{stfile} holding file names or station codes,
+  \item{stcol}{Columns in \code{stfile} holding file names (or station codes),
   longitudes, latitudes, elevations and station names. (Defaults to 1:5.)}
   \item{sep}{Field separator in \code{stfile} and data files (space or tab by default).}
   \item{anyi}{First year to study. (Defaults to the first year of available data.)}
@@ -32,7 +32,7 @@ All files referred to in \code{stfile} will be read, and the selected variable
 (precipitation, maximum or minimum temperature) will be stored in a unique
 \code{*.dat} file, with its companion \code{*.est} station file.  Therefore, if
 you want to convert all three variables, you must run this function three
-times.
+times, with \code{kvar} equal to 1, 2 and 3.
 
 Coordinates must be given in degrees with decimals, using the minus sign for
 sourthern latitudes and western longitudes.

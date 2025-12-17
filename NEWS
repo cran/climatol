@@ -1,5 +1,15 @@
 HISTORY OF CHANGES IN climatol
 
+2025-12-16, version 4.4-0
+- datrestore: now restores true outliers in all homogenized series, not only
+  in those reconstructed from the last homogeneous subperiod.
+- homogen: Fixed bug that sometimes gave errors when metad=TRUE.
+- rclimdex2climatol: Bugs fixed.
+- weekendaccum: improved quantiles for the detection of weekends or other days
+  with false zero precipitation which actually has been accumulated.
+  - Parameter expl=TRUE has been added, to avoid changing any value by default.
+  - Output files now have consistent names *_wkn.*
+
 2025-10-12, version 4.3-0
 - homogen: Removed code added to version 4.0 intended to lower the process time
     but was worsening the reconstruction of short series.
